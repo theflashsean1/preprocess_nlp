@@ -29,6 +29,10 @@ class VocabCreator:
 
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        for special_token in self._special_tokens:
+            self._opened_vocab_file.write(special_token + "\n")
+            self._opened_count_file.write("0\n")
+
         for word, count in sorted(self._vocabulary.items(), 
                                   key=lambda x: x[1], 
                                   reverse=True)[:self._vocab_size]:

@@ -1,17 +1,11 @@
 import numpy as np
+import vocab_utils
 
-
-def raw_txt2tokenized_txt():
+def words2batched_sequence_tfrecords():
     pass
 
-
-def tokenized_txt2batched_seq_txt():
+def rnn_batch_sequencer_file():
     pass
-
-
-def tokenized_txt2batched_seq_tfrecords():
-    pass
-
 
 def words2batched_seq(words, save_path, batch_size, seq_len):
     """
