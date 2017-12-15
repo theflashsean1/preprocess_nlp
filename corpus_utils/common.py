@@ -35,23 +35,23 @@ class Document():
     def change_seq_state(self, seq_state):
         self._seq_state = seq_state
 
-    def toggle_word_id(self):
+    def toggle_word_id(self, new_doc_name):
         transformed_doc = self._token_state.toggle_word_id()
         self._document_state.save_transformed_doc(transformed_doc)
 
-    def convert2txt(self):
+    def convert2txt(self, new_doc_name):
         pass
 
-    def convert2tfrecords(self):
+    def convert2tfrecords(self, new_doc_name):
         pass
 
-    def convert2np_array(self):
+    def convert2np_array(self, new_doc_name):
         pass
 
-    def convert2raw_seq(self):
+    def convert2raw_seq(self, new_doc_name):
         pass
 
-    def convert2batched_seq(self):
+    def convert2batched_seq(self, new_doc_name):
         pass
 
 class TokenState():
@@ -75,7 +75,7 @@ class WordTokenState(TokenState):
         for word in self._document:
             # Use vocabulary to get id
             # return id list
-            pass
+            yield word  # Transformed
 
 
 
@@ -103,15 +103,17 @@ class TxtDocumentState(DocumentState):
         self._txt_path = txt_path
 
     def __iter__(self):
-        # generator yield
-        pass
+        with open(self._txt_path) as f:
+            tokens = f.split()
+            for token in tokens:
+                yield token
 
     def convert2txt(self):
-        pass
+        print("Already in txt format")
 
     def convert2tfrecords(self):
         pass
-
+        
     def convert2np_array(self):
         pass
 
