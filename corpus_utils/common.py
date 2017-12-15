@@ -2,7 +2,17 @@ import abc
 
 class Document():
 
-    def __init__(self, document_state):
+    def __init__(self, document_state_input, token_state_type, document_state_type, seq_state_type):
+        if token_state_type == "word":
+            self._token_state = WordTokenState(self)
+        elif token_state_type == "id":
+            self._token_state = IdTokenState(self)
+        else:
+            raise ValueError("Not valid token state type")
+
+        if document_state_type == "txt":
+            self._document_state = TxtDocumentState(self, document_state_input)
+
         self._token_state = None
         self._document_state = None
         self._seq_state = None
@@ -78,6 +88,18 @@ class WordTokenState(TokenState):
             yield word  # Transformed
 
 
+class IdTokenState(TokenState):
+
+    @property
+    def token_type(self):
+        return str
+
+    def toggle_word_id(self):
+        for word in self._document:
+            # Use vocabulary to get id
+            # return id list
+            yield word  # Transformed
+
 
 class DocumentState():
 
@@ -99,21 +121,24 @@ class DocumentState():
 
 
 class TxtDocumentState(DocumentState):
-    def __init__(self, txt_path):
+    def __init__(self, document, txt_path):
+        self._document = document
         self._txt_path = txt_path
 
     def __iter__(self):
         with open(self._txt_path) as f:
-            tokens = f.split()
-            for token in tokens:
-                yield token
+            for line in f:
+                tokens = line.split()
+                for token in tokens:
+                    yield token
 
     def convert2txt(self):
         print("Already in txt format")
 
     def convert2tfrecords(self):
-        pass
-        
+        self._document.change_document_state(
+            TfrecordsDocumentState(self._document, ))
+
     def convert2np_array(self):
         pass
 
@@ -122,8 +147,14 @@ class TxtDocumentState(DocumentState):
         pass
 
 class TfrecordsDocumentState(DocumentState):
-    def __init__(self, txt_path):
-        self._txt_path = txt_path
+    def __init__(self, document, tfrecords_path):
+        self._document = document
+        self._tfrecords_path = tfrecords_path
+
+    @staticmethod
+    def create_tfrecords_document_state():
+        pass
+
 
     def __iter__(self):
         # generator yield
@@ -151,3 +182,4 @@ class SeqState():
 
     def convert2batched_seq(self):
         pass
+
