@@ -1,79 +1,75 @@
-import abc
+from corpus_utils.tfrecords_corpus import TfrecordsDocumentState
+from corpus_utils.interface import DocumentState, TokenState, SeqState
 
 class Document():
 
-    def __init__(self, document_state_input, token_state_type, document_state_type, seq_state_type):
+    def __init__(self, document_state_input, token_state_type,
+                 document_state_type, seq_state_type, vocab=None):
+        self._vocab = vocab
         if token_state_type == "word":
-            self._token_state = WordTokenState(self)
+            self._token_state = WordTokenState()
         elif token_state_type == "id":
-            self._token_state = IdTokenState(self)
+            self._token_state = IdTokenState()
         else:
             raise ValueError("Not valid token state type")
 
         if document_state_type == "txt":
-            self._document_state = TxtDocumentState(self, document_state_input)
+            self._document_state = TxtDocumentState(document_state_input)
+        elif document_state_type == "tfrecords":
+            self._document_state = TfrecordsDocumentState(document_state_input)
+        elif document_state_input == "numpy":
+            pass
+        else:
+            raise ValueError("Not valid document state type")
 
-        self._token_state = None
-        self._document_state = None
-        self._seq_state = None
+        if seq_state_type == "raw_seq":
+            pass
+        elif seq_state_type == "batched_seq":
+            pass
+        elif seq_state_type == "word2vec":
+            self._seq_state = Word2vecCenterContextSeqState()
+        else:
+            raise ValueError("Not valid Seq state type")
 
     def __str__(self):
         pass
 
     def __iter__(self):
-        return iter(self._document_state)
+        return self._seq_state.gen(iter(self._document_state))
 
-
+    ####################
+    # Client Interface #
+    ####################
     @property
-    def token_state(self):
-        return self._token_state
+    def token_type(self):
+        return self._token_state.token_type
 
-    @property
-    def document_state(self):
-        return self._document_state
+    # Word <--> Id
+    def toggle_word_id(self, new_doc_path):
+        toggled_doc = self._token_state.toggle_word_id_gen(iter(self), self._vocab)
+        new_token_state = WordTokenState() if isinstance(self._token_state, IdTokenState) else IdTokenState()
+        self._token_state = new_token_state
+        self._document_state.save_transformed_doc(toggled_doc, new_doc_path)
 
-    @property
-    def seq_state(self):
-        return self._seq_state
 
-    def change_token_state(self, token_state):
-        self._token_state = token_state
-
-    def change_document_state(self, document_state):
-        self._document_state = document_state
-
-    def change_seq_state(self, seq_state):
-        self._seq_state = seq_state
-
-    def toggle_word_id(self, new_doc_name):
-        transformed_doc = self._token_state.toggle_word_id()
-        self._document_state.save_transformed_doc(transformed_doc)
-
-    def convert2txt(self, new_doc_name):
+    # Txt, Tfrecords, Numpy array
+    def convert2txt(self, new_doc_path):
         pass
 
-    def convert2tfrecords(self, new_doc_name):
+    def convert2tfrecords(self, new_doc_path):
+        self._document_state = TfrecordsDocumentState.create_tfrecords_document_state(iter(self),
+                                                                                      new_doc_path,
+                                                                                      self.token_type)
+    def convert2np_array(self, new_doc_path):
         pass
 
-    def convert2np_array(self, new_doc_name):
+    # Raw_sequence, Batched_seq
+    def convert2raw_seq(self, new_doc_path):
         pass
 
-    def convert2raw_seq(self, new_doc_name):
+    def convert2batched_seq(self, new_doc_path):
         pass
 
-    def convert2batched_seq(self, new_doc_name):
-        pass
-
-class TokenState():
-    def __init__(self, document):
-        self._document = document
-
-    @abc.abstractmethod
-    def toggle_word_id(self):
-        """
-        :return: list that contains transformed tokens
-        """
-        pass
 
 class WordTokenState(TokenState):
 
@@ -81,8 +77,8 @@ class WordTokenState(TokenState):
     def token_type(self):
         return str
 
-    def toggle_word_id(self):
-        for word in self._document:
+    def toggle_word_id_gen(self, document_iter, vocabulary):
+        for word in document_iter:
             # Use vocabulary to get id
             # return id list
             yield word  # Transformed
@@ -92,37 +88,19 @@ class IdTokenState(TokenState):
 
     @property
     def token_type(self):
-        return str
+        return int
 
-    def toggle_word_id(self):
-        for word in self._document:
+    def toggle_word_id(self, document_iter, vocabulary):
+        for word in document_iter:
             # Use vocabulary to get id
             # return id list
             yield word  # Transformed
 
 
-class DocumentState():
-
-    @abc.abstractmethod
-    def convert2txt(self):
-        pass
-
-    @abc.abstractmethod
-    def convert2tfrecords(self):
-        pass
-
-    @abc.abstractmethod
-    def convert2np_array(self):
-        pass
-
-    @abc.abstractmethod
-    def save_transformed_doc(self, new_doc):
-        pass
 
 
 class TxtDocumentState(DocumentState):
-    def __init__(self, document, txt_path):
-        self._document = document
+    def __init__(self, txt_path):
         self._txt_path = txt_path
 
     def __iter__(self):
@@ -132,54 +110,42 @@ class TxtDocumentState(DocumentState):
                 for token in tokens:
                     yield token
 
-    def convert2txt(self):
-        print("Already in txt format")
-
-    def convert2tfrecords(self):
-        self._document.change_document_state(
-            TfrecordsDocumentState(self._document, ))
-
-    def convert2np_array(self):
-        pass
-
-    def save_transformed_doc(self, new_doc):
-        # Just write new_doc array in txt file
-        pass
-
-class TfrecordsDocumentState(DocumentState):
-    def __init__(self, document, tfrecords_path):
-        self._document = document
-        self._tfrecords_path = tfrecords_path
-
     @staticmethod
-    def create_tfrecords_document_state():
+    def create_txt_document_state(prev_doc_gen, new_doc_path):
+        with open(new_doc_path, "w") as f:
+            for token in prev_doc_gen:
+                f.write(token)
+        return TxtDocumentState(new_doc_path)
+
+    def save_transformed_doc(self, new_doc_gen, new_doc_path):
+        with open(new_doc_path, "w") as f:
+            for token in new_doc_gen:
+                f.write(token)
+        self._txt_path = new_doc_path
+
+
+class RawSeqState():
+    def gen(self, document_state_gen):
+        pass
+
+class Word2vecCenterContextSeqState():
+    def __init__(self, window_size):
+        self._window_size = window_size
+
+    def gen(self, document_state_gen):
         pass
 
 
-    def __iter__(self):
-        # generator yield
-        pass
+class RnnLanguageModelSeqState():
+    def __init__(self, batch_size, seq_len):
+        self._batch_size = batch_size
+        self._seq_len = seq_len
 
-    def convert2txt(self):
+    def gen(self, document_state_gen):
         pass
+        # Traverse the entire doc to get all the items in memory (array)
+        # Then compute nb_batches = doc_len/(batch_size * seq_len)
+        # slice through and get src:tgt array
+        # Finally cast it down to src: context format
 
-    def convert2tfrecords(self):
-        pass
-
-    def convert2np_array(self):
-        pass
-
-    def save_transformed_doc(self, new_doc):
-        # data type needs to be known, which
-        # shall be obtained from self.token_state.token_type
-        # Use it to decide "Feature" for tfrecords
-        pass
-
-
-class SeqState():
-    def convert2raw_seq(self):
-        pass
-
-    def convert2batched_seq(self):
-        pass
 
