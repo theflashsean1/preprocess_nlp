@@ -17,9 +17,7 @@ class TokenState():
 
 
 class SeqState():
-    def convert2raw_seq(self):
-        pass
-
-    def convert2batched_seq(self):
+    @abc.abstractmethod
+    def gen(self, doc_gen):
         pass
 

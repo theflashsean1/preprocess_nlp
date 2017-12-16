@@ -10,20 +10,14 @@ def _bytes_features(values):
 
 
 class TfrecordsDocumentState(DocumentState):
-    def __init__(self, tfrecords_path):
+    def __init__(self, tfrecords_path, token_type):
         self._tfrecords_path = tfrecords_path
+        self._token_type = token_type
 
     def __iter__(self):
         pass
 
-    @staticmethod
-    def create_tfrecords_document_state(prev_doc_gen, new_doc_name, token_type):
-        pass
-
-    def save_transformed_doc(self, new_doc_gen, new_doc_name):
-        # data type needs to be known, which
-        # shall be obtained from self.token_state.token_type
-        # Use it to decide "Feature" for tfrecords
+    def save_transformed_doc(self, new_doc_gen, new_doc_path, new_doc_path_sub=None):
         pass
 
 
