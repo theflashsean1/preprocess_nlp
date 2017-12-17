@@ -20,26 +20,56 @@ class VocabCreator:
     def __enter__(self):
         return self
 
+    def update_vocab_from_word(self, word):
+        if not (word in self._special_tokens):
+            self._vocab[word] = self._vocab[word]+1 if word in self._vocab else 1
 
     def update_vocab_from_sentence(self, sentence):
         for word in sentence.split():
-            if word in self._special_tokens:
-                continue
-            self._vocab[word] = self._vocab[word]+1 if word in self._vocab else 1
-
+            self.update_vocab_from_token(word)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         for special_token in self._special_tokens:
             self._opened_vocab_file.write(special_token + "\n")
             self._opened_count_file.write("0\n")
 
-        for word, count in sorted(self._vocabulary.items(), 
+        for word, count in sorted(self._vocab.items(), 
                                   key=lambda x: x[1], 
                                   reverse=True)[:self._vocab_size]:
             self._opened_vocab_file.write(word + "\n")
             if self._opened_count_file:
-                self._opened_count_file(str(count) + "\n")
+                self._opened_count_file.write(str(count) + "\n")
 
         self._opened_vocab_file.close()
         if self._opened_count_file:
             self._opened_count_file.close()
+
+
+class VocabReader:
+    def __init__(self, vocab_f_path, conut_f_path=None):
+        with open(vocab_f_path) as f:
+            words = f.read().strip().split()
+            ids = range(len(words))
+            self._vocab_size = len(words)
+            self._id2word_table = words
+            self._word2id_table = dict(zip(words, ids))
+            self._vocab_counts = None
+            if count_f_path:
+                with open(count_f_path) as count_f:
+                    counts = count_f.read().strip().split()
+                    self._vocab_counts = [int(count) for count in counts]
+    
+    def id2word_lookup(self, id_token):
+        return self._id2word_table[id_token] 
+
+    def word2id_lookup(self, word_token):
+        return self._word2id_table[word_token]
+
+    @property
+    def vocab_size(self):
+        return self._vocab_size
+
+    @property
+    def vocab_counts_list(self):
+        return self._vocab_counts
+

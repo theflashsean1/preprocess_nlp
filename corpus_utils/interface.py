@@ -1,23 +1,33 @@
 import abc
 
-class DocumentState():
-    """Please implement __iter__, and static factory method for creating itself"""
+
+class DocumentState(object):
+    def __init__(self, token_type):
+        self._token_type = token_type
+
+    def update_token_type(self, token_type):
+        self._token_type = token_type
+
     @abc.abstractmethod
-    def save_transformed_doc(self, new_doc_gen, new_doc_name):
+    def doc_gen_func(self, doc_path):
+        pass
+
+    @abc.abstractmethod
+    def doc_save(self, doc_gen, doc_path, doc_path_sub=None):
         pass
 
 
-class TokenState():
+class TokenState(object):
+    @property
     @abc.abstractmethod
-    def toggle_word_id_gen(self, document, vocabulary):
+    def token_type(self):
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def toggle_word_id_gen_func(document, vocabulary):
         """
         :return: list that contains transformed tokens
         """
-        pass
-
-
-class SeqState():
-    @abc.abstractmethod
-    def gen(self, doc_gen):
         pass
 

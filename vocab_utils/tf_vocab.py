@@ -1,5 +1,4 @@
-import tensorflow as tf
-
+import tensorflow as tf 
 
 class VocabReader(object):
     def __init__(self, vocab_f_path, count_f_path=None):
@@ -18,4 +17,5 @@ class VocabReader(object):
     @property
     def vocab_counts_list(self):
         return self._vocab_counts
+
 
