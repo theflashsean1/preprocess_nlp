@@ -17,9 +17,9 @@ class TestDocument(unittest.TestCase):
 
     def test_raw_gen(self):
         raw_iter = self._doc1.iter_seq("raw")
-        next(raw_iter) == "aer"
-        next(raw_iter) == "banknote"
-        next(raw_iter) == "berlitz"
+        self.assertEqual(next(raw_iter), "aer")
+        self.assertEqual(next(raw_iter), "banknote")
+        self.assertEqual(next(raw_iter), "berlitz")
 
     def test_modify_doc_info(self):
         pass
