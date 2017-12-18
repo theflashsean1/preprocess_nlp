@@ -1,28 +1,68 @@
 import os
 from corpus_utils.tfrecords_corpus import TfrecordsDocumentState
 from corpus_utils.interface import DocumentState, TokenState
+from vocab_utils.common import UNK, SOS, EOS
+import numpy as np
 
+"""
+When the following seq gen functions are called, assume that doc_gen only has
+standarlized tokens, and "\n", for example, has been replaced with "</s>"
+i.e. document_state has the responsibility for how to represent </s> but not
+the seq functions
+
+How to handle new line ?
+"""
 def raw_gen(doc_gen):
     return doc_gen
 
 
-def word2vec_center_context_gen(doc_gen, window_size):
-    pass
+def word2vec_center_context_gen(doc_gen, window_size, max_num_examples):
+    num_example = 0
+    center_word = next(doc_gen)
+    forward_context_words = []
+    backward_context_words = []
+    for _ in range(window_size):
+        forward_context_words.append(next(doc_gen))
+    while len(forward_context_words)!=0 and num_example<max_num_examples:
+        for context_word in backward_context_words + forward_context_words:
+            yield [center_word], [context_word]
+        num_example += 1
+        backward_context_words.append(center_word)
+        center_word = forward_context_words.pop(0)
+        try:
+            next_word = next(doc_gen)
+            forward_context_words.append(next_word)
+        except StopIteration:
+            pass
+        if len(backward_context_words) > window_size:
+            backward_context_words.pop(0)
+        
 
+def rnn_lang_model_gen(doc_gen, batch_size, seq_len, nb_epochs=1):
+    data = np.array([token for token in doc_gen])
+    data_len = data.shape[0]
+    nb_batches = (data_len - 1)//(batch_size*seq_len)
+    if nb_batches == 0:
+        raise ValueError("Not enough data for even a single batch")
+    rounded_data_len = nb_batches*batch_size*seq_len
+    xdata = np.reshape(data[0:rounded_data_len], [batch_size, nb_batches*seq_len])
+    ydata = np.reshape(data[1:rounded_data_len+1], [batch_size, nb_batches*seq_len])
 
-def rnn_lang_model_gen(doc_gen, batch_size, seq_len):
-    pass
-    # Traverse the entire doc to get all the items in memory (array)
-    # Then compute nb_batches = doc_len/(batch_size * seq_len)
-    # slice through and get src:tgt array
-    # Finally cast it down to src: context format
+    for epoch_id in range(nb_epochs):
+        for batch_id in range(nb_batches):
+            x = xdata[:, batch_id*seq_len:(batch_id+1)*seq_len]
+            y = ydata[:, batch_id*seq_len:(batch_id+1)*seq_len]
+            x = np.roll(x, -epoch_id, axis=0)
+            y = np.roll(y, -epoch_id, axis=0)
+            for x_one_seq, y_one_seq in zip(x, y):
+                yield x_one_seq, y_one_seq
 
 
 class Document(object):
     seq_func_table = {
         "raw": (raw_gen, []),
-        "word2vec": (word2vec_center_context_gen, ["window_size"]),
-        "rnn_lang_model": (rnn_lang_model_gen, ["batch_size", "seq_len"]),
+        "word2vec": (word2vec_center_context_gen, ["window_size", "max_num_examples"]),
+        "rnn_lang_model": (rnn_lang_model_gen, ["batch_size", "seq_len", "nb_epochs"]),
     }
 
     def __init__(self, document_state_path, token_state_type, vocab=None):
@@ -145,24 +185,25 @@ class TxtDocumentState(DocumentState):
                     tokens = line.split()
                     for token in tokens:
                         yield token
+                    yield EOS
         return doc_gen
 
-    def doc_save(self, doc_gen, doc_path, doc_path_sub=None):
+    def doc_save(self, doc_line_gen, doc_path, doc_path_sub=None):
         if not doc_path_sub:
-            self._doc_save_src(doc_gen, doc_path)
+            self._doc_save_src(doc_line_gen, doc_path)
         else:
-            self._doc_save_src_tgt(doc_gen, doc_path, doc_path_sub)
+            self._doc_save_src_tgt(doc_line_gen, doc_path, doc_path_sub)
     
-    def _doc_save_src(self, doc_gen, doc_path):
+    def _doc_save_src(self, doc_line_gen, doc_path):
         with open(doc_path, "w") as f:
-            for token in doc_gen:
-                f.write(token)
+            for line_list in doc_line_gen:
+                f.write(" ".join(line_list) + "\n")
 
-    def _doc_save_src_tgt(self, doc_gen, doc_path, doc_path_sub):
+    def _doc_save_src_tgt(self, doc_line_gen, doc_path, doc_path_sub):
         with open(doc_path, "w") as src_f, open(doc_path_sub, "w") as tgt_f:
-            for src_token, tgt_token in zip(src_f, tgt_f):
-                src_f.write(src_token)
-                tgt_f.write(tgt_token)
+            for src_line_list, tgt_line_list in doc_line_gen:
+                src_f.write(" ".join(src_line_list) + "\n")
+                tgt_f.write(" ".join(tgt_line_list) + "\n")
 
 
 
