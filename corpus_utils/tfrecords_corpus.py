@@ -29,6 +29,10 @@ def get_parse_func(src_type, tgt_type):
 
 
 class TfrecordsDocumentState(DocumentState):
+    @property
+    def doc_format(self):
+        return "tfrecords"
+
     def doc_gen_func(self, doc_path):
         def doc_gen():
             pass

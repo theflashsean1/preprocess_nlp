@@ -102,7 +102,7 @@ class Document(object):
         return self._document_state.doc_format
 
 
-    def set_vocab(self):
+    def set_vocab(self, vocab):
         self._vocab = vocab
 
     ##########################
@@ -150,7 +150,7 @@ class WordTokenState(TokenState):
     def toggle_word_id_gen_func(document_iter, vocabulary):
         def toggle_word_id_gen():
             for word_token in document_iter:
-                id_token = self._vocabulary.word2id_lookup(word_token)
+                id_token = vocabulary.word2id_lookup(word_token)
                 yield id_token  # Transformed
         return toggle_word_id_gen
 
@@ -165,7 +165,7 @@ class IdTokenState(TokenState):
     def toggle_word_id_gen_func(document_iter, vocabulary):
         def toggle_word_id_gen():
             for id_token in document_iter:
-                word_token = self._vocabulary.id2word_lookup(int(id_token))
+                word_token = vocabulary.id2word_lookup(int(id_token))
                 yield word_token  # Transformed
         return toggle_word_id_gen
 
