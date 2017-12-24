@@ -1,5 +1,5 @@
 import tensorflow as tf
-from corpus_utils.interface import DocumentState
+from preprocess_nlp.corpus_utils.interface import DocumentState
 
 
 def _bytes_feature(value):

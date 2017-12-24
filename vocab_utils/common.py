@@ -2,6 +2,8 @@ UNK = "<unk>"
 SOS = "<s>"
 EOS = "</s>"
 UNK_ID = 0
+SOS_ID = 1
+EOS_ID = 2
 
 class VocabCreator:
 
@@ -37,7 +39,7 @@ class VocabCreator:
                                   key=lambda x: x[1], 
                                   reverse=True)[:self._vocab_size]:
             self._opened_vocab_file.write(word + "\n")
-            if self._opened_count_file:
+            if self._opened_count_file is not None:
                 self._opened_count_file.write(str(count) + "\n")
 
         self._opened_vocab_file.close()
@@ -46,7 +48,7 @@ class VocabCreator:
 
 
 class VocabReader:
-    def __init__(self, vocab_f_path, conut_f_path=None):
+    def __init__(self, vocab_f_path, count_f_path=None):
         with open(vocab_f_path) as f:
             words = f.read().strip().split()
             ids = range(len(words))
@@ -54,7 +56,7 @@ class VocabReader:
             self._id2word_table = words
             self._word2id_table = dict(zip(words, ids))
             self._vocab_counts = None
-            if count_f_path:
+            if count_f_path is not None:
                 with open(count_f_path) as count_f:
                     counts = count_f.read().strip().split()
                     self._vocab_counts = [int(count) for count in counts]
@@ -64,6 +66,12 @@ class VocabReader:
 
     def word2id_lookup(self, word_token):
         return self._word2id_table[word_token]
+
+    def check_word_exist(self, word_token):
+        return (word_token in self._word2id_table)
+
+    def check_id_exist(self, id_token):
+        return (id_token >= 0) and (id_token < len(self._id2word_table))
 
     @property
     def vocab_size(self):

@@ -1,5 +1,5 @@
 import nltk
-import file_utils
+from preprocess_nlp import file_utils
 
 
 def notes_tokenize(data_path):

@@ -1,5 +1,5 @@
 from gensim import corpora
-import file_utils
+from preprocess_nlp import file_utils
 
 
 def create_dictionary(*text_paths):

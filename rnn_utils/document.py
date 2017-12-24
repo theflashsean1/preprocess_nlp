@@ -1,5 +1,5 @@
 import numpy as np
-import vocab_utils
+from preprocess_nlp import vocab_utils
 
 def words2batched_sequence_tfrecords():
     pass

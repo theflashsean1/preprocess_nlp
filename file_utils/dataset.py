@@ -1,5 +1,5 @@
 import os
-import file_utils
+from preprocess_nlp import file_utils
 
 
 def textline_file_split(data_path, train_size, eval_size, test_size):

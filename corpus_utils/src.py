@@ -1,7 +1,7 @@
 import os
-from corpus_utils.tfrecords_corpus import TfrecordsDocumentState
-from corpus_utils.interface import DocumentState, TokenState
-from vocab_utils.common import UNK, SOS, EOS
+from preprocess_nlp.corpus_utils.tfrecords_corpus import TfrecordsDocumentState
+from preprocess_nlp.corpus_utils.interface import DocumentState, TokenState
+from preprocess_nlp.vocab_utils.common import UNK, SOS, EOS, EOS_ID
 import numpy as np
 
 """
@@ -114,6 +114,22 @@ class Document(object):
         new_token_state = WordTokenState() if isinstance(self._token_state, IdTokenState) else IdTokenState()
         self._token_state = new_token_state
 
+    def mask_unk(self):
+        assert self._vocab is not None
+        iter_gen = self._iter_gen_func()
+        def mask_unk_f():
+            if self.token_type == str:
+                unk_signature = UNK
+                unk_check_f = self._vocab.check_word_exist
+            else:
+                raise NotImplementedError("Not implemented yet")
+            for token in iter_gen:
+                if not unk_check_f(token):
+                    yield unk_signature
+                else:
+                    yield token
+        self._iter_gen_func = mask_unk_f
+
     def convert2txt(self):
         self._document_state = TxtDocumentState(self.token_type)
 
@@ -141,10 +157,7 @@ class Document(object):
 
 
 class WordTokenState(TokenState):
-
-    @property
-    def token_type(self):
-        return str
+    token_type = str
 
     @staticmethod
     def toggle_word_id_gen_func(document_iter, vocabulary):
@@ -156,10 +169,7 @@ class WordTokenState(TokenState):
 
 
 class IdTokenState(TokenState):
-
-    @property
-    def token_type(self):
-        return int
+    token_type = int
 
     @staticmethod
     def toggle_word_id_gen_func(document_iter, vocabulary):
@@ -185,14 +195,16 @@ class TxtDocumentState(DocumentState):
                     tokens = line.split()
                     for token in tokens:
                         yield token
-                    yield EOS
+                    if self._token_type == str:
+                        yield EOS
+                    else:
+                        yield EOS_ID
         return doc_gen
 
     def doc_save(self, doc_line_gen, doc_path, doc_path_sub=None):
         if not doc_path_sub:
             self._doc_save_src(doc_line_gen, doc_path)
-        else:
-            self._doc_save_src_tgt(doc_line_gen, doc_path, doc_path_sub)
+        else: self._doc_save_src_tgt(doc_line_gen, doc_path, doc_path_sub)
     
     def _doc_save_src(self, doc_line_gen, doc_path):
         with open(doc_path, "w") as f:

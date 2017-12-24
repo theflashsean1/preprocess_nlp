@@ -1,8 +1,7 @@
 import unittest
 import pdb
 import sys
-sys.path.append('..')
-from corpus_utils.src import Document
+from preprocess_nlp.corpus_utils.src import Document
 
 
 class TestDocument(unittest.TestCase):
