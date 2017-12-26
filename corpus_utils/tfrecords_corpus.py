@@ -14,6 +14,10 @@ def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
 
+def _int64_features(values):
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=values))
+
+
 # TODO not needed here for recovering data from .tfrecords
 def get_parse_func(src_type, tgt_type):
     def _parse(example_proto):
