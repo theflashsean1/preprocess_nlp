@@ -90,6 +90,9 @@ class Document(object):
     def __str__(self):
         return str(self._document_state) + " & BasePath: " + self._gen_base_path
 
+    def __iter__(self):
+        return self._iter_gen_func()
+
     ####################
     # Client Interface #
     ####################
@@ -104,6 +107,18 @@ class Document(object):
 
     def set_vocab(self, vocab):
         self._vocab = vocab
+
+    def iter_seq_len(self, seq_len):
+        token_iter = iter(self)
+        while True:
+            seq_list = []
+            try:
+                for _ in range(seq_len):
+                    seq_list.append(next(token_iter))
+            except:
+                raise ValueError("document already empty")
+            yield tuple(seq_list)
+
 
     ##########################
     # State Changing methods #
@@ -154,6 +169,9 @@ class Document(object):
             assert key in kwargs
         doc_gen = seq_func(self._iter_gen_func(), **kwargs)
         self._document_state.doc_save(doc_gen, new_doc_path, new_doc_path_sub)
+
+class DocumentSequencedIterator():
+    pass
 
 
 class WordTokenState(TokenState):

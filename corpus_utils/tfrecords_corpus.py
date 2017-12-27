@@ -31,6 +31,18 @@ def get_parse_func(src_type, tgt_type):
         return features['src'], features['tgt']
     return _parse
 
+# Put this in tensorbridge models
+def get_parse_func2(src_type, tgt_type, batch_size):
+    def _parse(example_proto):
+        features = tf.parse_single_example(
+            serialized=example_proto,
+            features={
+                'src_seq': tf.FixedLenFeature([], src_type),   
+                'label': tf.FixedLenFeature([], tgt_type),
+                'flag_new_doc': tf.FixedLenFeature([], tf.int32)
+            }
+        )
+
 
 class TfrecordsDocumentState(DocumentState):
     @property
@@ -53,5 +65,10 @@ class TfrecordsDocumentState(DocumentState):
         else:
             raise NotImplementedError(str(len(items)) + " gen items not handled right now")
 
+
+def gen_tfrecords_doc(num_examples, **kwdocs):
+    for _ in num_examples:
+        context_feature_dict = {}
+        feature_lists_dict = {}
 
 
