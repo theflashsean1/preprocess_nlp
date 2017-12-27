@@ -16,7 +16,8 @@ def raw_gen(doc_gen):
     return doc_gen
 
 
-def word2vec_center_context_gen(doc_gen, window_size, max_num_examples):
+def word2vec_center_context_gen(doc, window_size, max_num_examples):
+    doc_gen = iter(doc)
     num_example = 0
     center_word = next(doc_gen)
     forward_context_words = []
@@ -38,7 +39,8 @@ def word2vec_center_context_gen(doc_gen, window_size, max_num_examples):
             backward_context_words.pop(0)
         
 
-def rnn_lang_model_gen(doc_gen, batch_size, seq_len, nb_epochs=1):
+def rnn_lang_model_gen(doc, batch_size, seq_len, nb_epochs=1):
+    doc_gen = iter(doc)
     data = np.array([token for token in doc_gen])
     data_len = data.shape[0]
     nb_batches = (data_len - 1)//(batch_size*seq_len)
@@ -58,17 +60,34 @@ def rnn_lang_model_gen(doc_gen, batch_size, seq_len, nb_epochs=1):
                 yield x_one_seq, y_one_seq
 
 
+def doc_labels_gen(doc, batch_size, seq_len, merging_docs, label_keys, num_examples): 
+    for doc_ in merging_docs:
+        assert doc.token_type == doc_.token_type
+    doc_seq_iters = [doc_.get_sequenced_iter(seq_len) for doc_ in [doc]+merging_docs]
+    doc_label_dict = [{k: doc.get_label(k) for k in label_keys} for doc_ in [doc] + merging_docs]
+    num_docs = len(docs)
+    count = 0
+    while count < num_examples:
+        index = count%num_docs
+        yield next(doc_seq_iters[index]), doc_label_dict[index]
+        count += 1
+
+
 class Document(object):
     seq_func_table = {
         "raw": (raw_gen, []),
         "word2vec": (word2vec_center_context_gen, ["window_size", "max_num_examples"]),
         "rnn_lang_model": (rnn_lang_model_gen, ["batch_size", "seq_len", "nb_epochs"]),
     }
+    seq_label_func_table = {
+        "docs_labels": (doc_labels_gen, ["batch_size", "seq_len", "merging_docs", "label_keys", "num_examples"])        
+    }
 
     def __init__(self, document_state_path, token_state_type, vocab=None):
         if not os.path.exists(document_state_path):
             raise IOError("file not found")
         self._vocab = vocab
+        self._label_dict = {}
         if token_state_type == "word":
             self._token_state = WordTokenState()
         elif token_state_type == "id":
@@ -93,6 +112,19 @@ class Document(object):
     def __iter__(self):
         return self._iter_gen_func()
 
+    def get_sequenced_iter(self, seq_len):
+        doc_gen = iter(self)
+        while True:
+            seq_list = []
+            try:
+                for _ in range(seq_len):
+                    seq_list.append(next(doc_gen))
+            except:
+                print("doc sequenced iter finished")
+                break
+                # raise ValueError("document already empty")
+            yield tuple(seq_list)
+
     ####################
     # Client Interface #
     ####################
@@ -108,17 +140,11 @@ class Document(object):
     def set_vocab(self, vocab):
         self._vocab = vocab
 
-    def iter_seq_len(self, seq_len):
-        token_iter = iter(self)
-        while True:
-            seq_list = []
-            try:
-                for _ in range(seq_len):
-                    seq_list.append(next(token_iter))
-            except:
-                raise ValueError("document already empty")
-            yield tuple(seq_list)
+    def set_label(self, key, val):
+        self._label_dict[key] = val
 
+    def get_label(self, key):
+        return self._label_dict.get(key, None)
 
     ##########################
     # State Changing methods #
@@ -164,14 +190,18 @@ class Document(object):
         return seq_func(self._iter_gen_func(), **kwargs)
 
     def save_seq(self, seq_type, new_doc_path, new_doc_path_sub=None, **kwargs):
-        seq_func, seq_args = self.seq_func_table[seq_type]
-        for key in seq_args:
-            assert key in kwargs
-        doc_gen = seq_func(self._iter_gen_func(), **kwargs)
+        doc_gen = self.iter_seq(seq_type, **kwargs)
         self._document_state.doc_save(doc_gen, new_doc_path, new_doc_path_sub)
 
-class DocumentSequencedIterator():
-    pass
+    def iter_seq_with_labels(self, seq_type, **kwargs):
+        seq_func, seq_args = self.seq_label_func_table[seq_type]
+        for key in seq_args:
+            assert key in kwargs
+        return seq_func(self._iter_gen_func(), **kwargs)
+
+    def save_seq_with_labels(self, seq_type, new_doc_path, new_doc_path_sub=None, **kwargs):
+        doc_gen = self.iter_seq_with_labels(seq_type, **kwargs)
+        self._document_state.doc_save_with_label(doc_gen, new_doc_path, new_doc_path_sub)
 
 
 class WordTokenState(TokenState):

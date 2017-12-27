@@ -65,10 +65,11 @@ class TfrecordsDocumentState(DocumentState):
         else:
             raise NotImplementedError(str(len(items)) + " gen items not handled right now")
 
+    def doc_save_with_label(self, doc_gen, doc_path, doc_path_sub=None):
+        """
+        doc_gen could be (src, label_dict) or (src, tgt, label_dict)
+        """
+        pass
 
-def gen_tfrecords_doc(num_examples, **kwdocs):
-    for _ in num_examples:
-        context_feature_dict = {}
-        feature_lists_dict = {}
 
 

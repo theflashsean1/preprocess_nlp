@@ -16,6 +16,10 @@ class DocumentState(object):
     def doc_save(self, doc_gen, doc_path, doc_path_sub=None):
         pass
 
+    @abc.abstractmethod
+    def doc_save_with_label(self, doc_gen, labels_dict, doc_path, doc_path_sub=None):
+        pass
+
 
 class TokenState(object):
     @property
