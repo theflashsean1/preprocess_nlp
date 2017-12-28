@@ -4,14 +4,7 @@ from preprocess_nlp.corpus_utils.interface import DocumentState, TokenState
 from preprocess_nlp.vocab_utils.common import UNK, SOS, EOS, EOS_ID
 import numpy as np
 
-"""
-When the following seq gen functions are called, assume that doc_gen only has
-standarlized tokens, and "\n", for example, has been replaced with "</s>"
-i.e. document_state has the responsibility for how to represent </s> but not
-the seq functions
 
-How to handle new line ?
-"""
 def raw_gen(doc_gen):
     return doc_gen
 
@@ -63,13 +56,28 @@ def rnn_lang_model_gen(doc, batch_size, seq_len, nb_epochs=1):
 def doc_labels_gen(doc, batch_size, seq_len, merging_docs, label_keys, num_examples): 
     for doc_ in merging_docs:
         assert doc.token_type == doc_.token_type
+    count = 0
+    start_doc_id = 0
+    num_docs = len(docs)
     doc_seq_iters = [doc_.get_sequenced_iter(seq_len) for doc_ in [doc]+merging_docs]
     doc_label_dict = [{k: doc.get_label(k) for k in label_keys} for doc_ in [doc] + merging_docs]
-    num_docs = len(docs)
-    count = 0
+    curr_doc_seq_iters = doc_seq_iters[start_doc_id:start_doc_id+batch_size]
+    curr_doc_label_dict = doc_label_dict[start_doc_id:start_doc_id+batch_size]
+    
+    next_seq, next_labels_dict = next(doc_seq_iters[index]), doc_label_dict[index]
     while count < num_examples:
         index = count%num_docs
-        yield next(doc_seq_iters[index]), doc_label_dict[index]
+        seq, labels_dict = next_seq, next_labels_dict
+        try:
+            next_seq, next_labels_dict = next(doc_seq_iters[index]), doc_label_dict[index]
+            labels_dict["eod_flag"] = 0
+        except StopIteration:
+            labels_dict["eod_flag"] = 1
+            start_doc_id += batch_size
+            curr_doc_seq_iters = doc_seq_iters[start_doc_id:start_doc_id+batch_size]
+            curr_doc_label_dict = doc_label_dict[start_doc_id:start_doc_id+batch_size]
+            next_seq, next_labels_dict = next(doc_seq_iters[index]), doc_label_dict[index]
+        yield seq, labels_dict
         count += 1
 
 
@@ -83,31 +91,59 @@ class Document(object):
         "docs_labels": (doc_labels_gen, ["batch_size", "seq_len", "merging_docs", "label_keys", "num_examples"])        
     }
 
-    def __init__(self, document_state_path, token_state_type, vocab=None):
+    @staticmethod 
+    def create_document_from_file(document_path, token_state_type, vocab=None):
         if not os.path.exists(document_state_path):
             raise IOError("file not found")
-        self._vocab = vocab
-        self._label_dict = {}
-        if token_state_type == "word":
-            self._token_state = WordTokenState()
-        elif token_state_type == "id":
-            self._token_state = IdTokenState()
-        else:
-            raise ValueError("Not valid token state type")
-
+        token_state = Document.create_token_state(token_state_type)
         if document_state_path.endswith(".txt"):
-            self._document_state = TxtDocumentState(self.token_type)
+            document_state = TxtDocumentState(token_state.token_type)
         elif document_state_path.endswith(".tfrecords"):
-            self._document_state = TfrecordsDocumentState(self.token_type)
+            document_state = TfrecordsDocumentState(token_state.token_type)
         elif document_state_path.endswith(".npy"):
             pass
         else:
             raise ValueError("Not valid document state type")
-        self._iter_gen_func = self._document_state.doc_gen_func(document_state_path)
-        self._gen_base_path = document_state_path
+        doc_gen_f = document_state.doc_gen_func()
+        return Document(doc_gen_f, document_state, token_state, vocab)
+
+    @staticmethod
+    def create_document_from_iter(document_iter, document_state_type, token_state_type, vocab=None):
+        def doc_gen_f():
+            for token in document_iter:
+                yield token
+        if document_state_type == "txt":
+            document_state = TxtDocumentState(self.token_type)
+        elif document_state_type == "tfrecords":
+            document_state = TfrecordsDocumentState(self.token_type)
+        elif document_state_type == "npy":
+            pass
+        else:
+            raise ValueError("Not valid document state type")
+        token_state = Document.create_token_state(token_state_type)
+        return Document(doc_gen_f, document_state, token_state, vocab)
+
+    @staticmethod
+    def create_token_state(token_state_type):
+        if token_state_type == "word":
+            token_state = WordTokenState()
+        elif token_state_type == "id":
+            token_state = IdTokenState()
+        else:
+            raise ValueError("Not valid token state type")
+        return token_state
+
+    def __init__(self, doc_gen_f, document_state, token_state, vocab=None):
+        if not os.path.exists(document_state_path):
+            raise IOError("file not found")
+        self._vocab = vocab
+        self._label_dict = {}
+        self._token_state = token_state
+        self._document_state = document_state
+        self._iter_gen_func = doc_gen_f
 
     def __str__(self):
-        return str(self._document_state) + " & BasePath: " + self._gen_base_path
+        return str(self._document_state) 
 
     def __iter__(self):
         return self._iter_gen_func()
