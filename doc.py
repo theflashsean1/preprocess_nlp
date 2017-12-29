@@ -6,88 +6,8 @@ import numpy as np
 import collections
 
 
-def raw_gen(doc_gen):
-    return doc_gen
-
-# ONLY SRC & labels_dict
-def word2vec_center_context_gen(doc, window_size, max_num_examples):
-    doc_gen = iter(doc)
-    num_example = 0
-    center_word = next(doc_gen)
-    forward_context_words = []
-    backward_context_words = []
-    for _ in range(window_size):
-        forward_context_words.append(next(doc_gen))
-    while len(forward_context_words) != 0 and num_example < max_num_examples:
-        for context_word in backward_context_words + forward_context_words:
-            yield [center_word], [context_word]
-        num_example += 1
-        backward_context_words.append(center_word)
-        center_word = forward_context_words.pop(0)
-        try:
-            next_word = next(doc_gen)
-            forward_context_words.append(next_word)
-        except StopIteration:
-            pass
-        if len(backward_context_words) > window_size:
-            backward_context_words.pop(0)
-        
-
-def rnn_lang_model_gen(doc, batch_size, seq_len, nb_epochs=1):
-    doc_gen = iter(doc)
-    data = np.array([token for token in doc_gen])
-    data_len = data.shape[0]
-    nb_batches = (data_len - 1)//(batch_size*seq_len)
-    if nb_batches == 0:
-        raise ValueError("Not enough data for even a single batch")
-    rounded_data_len = nb_batches*batch_size*seq_len
-    xdata = np.reshape(data[0:rounded_data_len], [batch_size, nb_batches*seq_len])
-    ydata = np.reshape(data[1:rounded_data_len+1], [batch_size, nb_batches*seq_len])
-
-    for epoch_id in range(nb_epochs):
-        for batch_id in range(nb_batches):
-            x = xdata[:, batch_id*seq_len:(batch_id+1)*seq_len]
-            y = ydata[:, batch_id*seq_len:(batch_id+1)*seq_len]
-            x = np.roll(x, -epoch_id, axis=0)
-            y = np.roll(y, -epoch_id, axis=0)
-            for x_one_seq, y_one_seq in zip(x, y):
-                yield x_one_seq, y_one_seq
-
-
-def doc_labels_gen(doc, batch_size, seq_len, merging_docs, label_keys, num_examples): 
-    for doc_ in merging_docs:
-        assert doc.token_type == doc_.token_type
-    start_doc_id = 0
-    docs = [doc] + merging_docs
-    num_docs = len(docs)
-    doc_seq_iters = [doc_.get_sequenced_iter(seq_len) for doc_ in docs]
-    doc_label_dict = [{k: doc_.get_label(k) for k in label_keys} for doc_ in docs]
-    curr_doc_seq_iters = doc_seq_iters[start_doc_id:start_doc_id+batch_size]
-    curr_doc_label_dict = doc_label_dict[start_doc_id:start_doc_id+batch_size]
-    
-    next_seq, next_labels_dict = next(curr_doc_seq_iters[0]), curr_doc_label_dict[0]
-    count = 1
-    while count < num_examples:
-        index = count % num_docs
-        seq, labels_dict = next_seq, next_labels_dict
-        try:
-            next_seq, next_labels_dict = next(curr_doc_seq_iters[index]), curr_doc_label_dict[index]
-            labels_dict["eod_flag"] = 0
-        except StopIteration:
-            labels_dict["eod_flag"] = 1
-            start_doc_id += batch_size
-            curr_doc_seq_iters = doc_seq_iters[start_doc_id:start_doc_id+batch_size]
-            curr_doc_label_dict = doc_label_dict[start_doc_id:start_doc_id+batch_size]
-            next_seq, next_labels_dict = next(doc_seq_iters[index]), doc_label_dict[index]
-        yield seq, labels_dict
-        count += 1
-
-
 class Document(object):
     seq_func_table = {
-        "raw": (raw_gen, []),
-        "word2vec": (word2vec_center_context_gen, ["window_size", "max_num_examples"]),
-        "rnn_lang_model": (rnn_lang_model_gen, ["batch_size", "seq_len", "nb_epochs"]),
         "docs_labels": (doc_labels_gen, ["batch_size", "seq_len", "merging_docs", "label_keys", "num_examples"])        
     }
 
