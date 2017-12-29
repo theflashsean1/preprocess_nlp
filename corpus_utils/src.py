@@ -18,7 +18,7 @@ def word2vec_center_context_gen(doc, window_size, max_num_examples):
     backward_context_words = []
     for _ in range(window_size):
         forward_context_words.append(next(doc_gen))
-    while len(forward_context_words)!=0 and num_example<max_num_examples:
+    while len(forward_context_words) != 0 and num_example < max_num_examples:
         for context_word in backward_context_words + forward_context_words:
             yield [center_word], [context_word]
         num_example += 1
@@ -57,20 +57,21 @@ def rnn_lang_model_gen(doc, batch_size, seq_len, nb_epochs=1):
 def doc_labels_gen(doc, batch_size, seq_len, merging_docs, label_keys, num_examples): 
     for doc_ in merging_docs:
         assert doc.token_type == doc_.token_type
-    count = 0
     start_doc_id = 0
+    docs = [doc] + merging_docs
     num_docs = len(docs)
-    doc_seq_iters = [doc_.get_sequenced_iter(seq_len) for doc_ in [doc]+merging_docs]
-    doc_label_dict = [{k: doc.get_label(k) for k in label_keys} for doc_ in [doc] + merging_docs]
+    doc_seq_iters = [doc_.get_sequenced_iter(seq_len) for doc_ in docs]
+    doc_label_dict = [{k: doc_.get_label(k) for k in label_keys} for doc_ in docs]
     curr_doc_seq_iters = doc_seq_iters[start_doc_id:start_doc_id+batch_size]
     curr_doc_label_dict = doc_label_dict[start_doc_id:start_doc_id+batch_size]
     
-    next_seq, next_labels_dict = next(doc_seq_iters[index]), doc_label_dict[index]
+    next_seq, next_labels_dict = next(curr_doc_seq_iters[0]), curr_doc_label_dict[0]
+    count = 1
     while count < num_examples:
-        index = count%num_docs
+        index = count % num_docs
         seq, labels_dict = next_seq, next_labels_dict
         try:
-            next_seq, next_labels_dict = next(doc_seq_iters[index]), doc_label_dict[index]
+            next_seq, next_labels_dict = next(curr_doc_seq_iters[index]), curr_doc_label_dict[index]
             labels_dict["eod_flag"] = 0
         except StopIteration:
             labels_dict["eod_flag"] = 1
@@ -97,10 +98,10 @@ class Document(object):
         token_state = cls.create_token_state(token_state_type)
         if document_state_path.endswith(".txt"):
             document_state = TxtDocumentState(token_state.token_type)
-        elif document_state_path.endswith(".tfrecords"):
+        elif document_path.endswith(".tfrecords"):
             document_state = TfrecordsDocumentState(token_state.token_type)
-        elif document_state_path.endswith(".npy"):
-            pass
+        elif document_path.endswith(".npy"):
+            document_state = None
         else:
             raise ValueError("Not valid document state type")
         doc_gen_f = document_state.doc_gen_func()
@@ -111,10 +112,11 @@ class Document(object):
         def doc_gen_f():
             for token in document_iter:
                 yield token
+        token_state = Document.create_token_state(token_state_type)
         if document_state_type == "txt":
-            document_state = TxtDocumentState(self.token_type)
+            document_state = TxtDocumentState(token_state.token_type)
         elif document_state_type == "tfrecords":
-            document_state = TfrecordsDocumentState(self.token_type)
+            document_state = TfrecordsDocumentState(token_state.token_type)
         elif document_state_type == "npy":
             pass
         else:
@@ -133,13 +135,11 @@ class Document(object):
         return token_state
 
     def __init__(self, doc_gen_f, document_state, token_state, vocab=None):
-        if not os.path.exists(document_state_path):
-            raise IOError("file not found")
         self._vocab = vocab
-        self._label_dict = {}
-        self._token_state = token_state
-        self._document_state = document_state
         self._iter_gen_func = doc_gen_f
+        self._document_state = document_state
+        self._token_state = token_state
+        self._label_dict = {}
 
     def __str__(self):
         return str(self._document_state) 
@@ -170,7 +170,6 @@ class Document(object):
     @property
     def doc_format(self):
         return self._document_state.doc_format
-
 
     def set_vocab(self, vocab):
         self._vocab = vocab

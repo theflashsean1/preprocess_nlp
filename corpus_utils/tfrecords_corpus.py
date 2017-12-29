@@ -25,6 +25,7 @@ def _int64_features(values):
 def _int64_feature_list(values, int_feautre_func):
     return tf.train.FeatureList(feature=[int_feautre_func(val) for val in values])
 
+
 def _feature_dict(int_feature_dict, bytes_feature_dict):
     feature_dict = {}
     for key, val in int_feature_dict.items():
@@ -33,6 +34,7 @@ def _feature_dict(int_feature_dict, bytes_feature_dict):
         feature_dict[key] = _bytes_feature(val)
     return feature_dict
 
+
 def _feature_list_dict(int_feature_dict, bytes_feature_dict):
     feature_dict = {}
     for key, val in int_feature_dict.items():
@@ -40,6 +42,7 @@ def _feature_list_dict(int_feature_dict, bytes_feature_dict):
     for key, val in bytes_feature_dict.items():
         feature_dict[key] = _bytes_feature_list(val, _bytes_feature)
     return feature_dict
+
 
 def make_sequence_example(context_feature_dict, feature_list_dict):
     ex = tf.train.SequenceExample(
@@ -51,6 +54,7 @@ def make_sequence_example(context_feature_dict, feature_list_dict):
             )
          )
     return ex
+
 
 # TODO not needed here for recovering data from .tfrecords
 def get_parse_func(src_type, tgt_type):
