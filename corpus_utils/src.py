@@ -3,12 +3,13 @@ from preprocess_nlp.corpus_utils.tfrecords_corpus import TfrecordsDocumentState
 from preprocess_nlp.corpus_utils.interface import DocumentState, TokenState
 from preprocess_nlp.vocab_utils.common import UNK, SOS, EOS, EOS_ID
 import numpy as np
+import collections
 
 
 def raw_gen(doc_gen):
     return doc_gen
 
-
+# ONLY SRC & labels_dict
 def word2vec_center_context_gen(doc, window_size, max_num_examples):
     doc_gen = iter(doc)
     num_example = 0
@@ -86,16 +87,14 @@ class Document(object):
         "raw": (raw_gen, []),
         "word2vec": (word2vec_center_context_gen, ["window_size", "max_num_examples"]),
         "rnn_lang_model": (rnn_lang_model_gen, ["batch_size", "seq_len", "nb_epochs"]),
-    }
-    seq_label_func_table = {
         "docs_labels": (doc_labels_gen, ["batch_size", "seq_len", "merging_docs", "label_keys", "num_examples"])        
     }
 
-    @staticmethod 
-    def create_document_from_file(document_path, token_state_type, vocab=None):
+    @classmethod 
+    def create_from_file(cls, document_path, token_state_type, vocab=None):
         if not os.path.exists(document_state_path):
             raise IOError("file not found")
-        token_state = Document.create_token_state(token_state_type)
+        token_state = cls.create_token_state(token_state_type)
         if document_state_path.endswith(".txt"):
             document_state = TxtDocumentState(token_state.token_type)
         elif document_state_path.endswith(".tfrecords"):
@@ -105,10 +104,10 @@ class Document(object):
         else:
             raise ValueError("Not valid document state type")
         doc_gen_f = document_state.doc_gen_func()
-        return Document(doc_gen_f, document_state, token_state, vocab)
+        return cls(doc_gen_f, document_state, token_state, vocab)
 
-    @staticmethod
-    def create_document_from_iter(document_iter, document_state_type, token_state_type, vocab=None):
+    @classmethod
+    def create_from_iter(cls, document_iter, document_state_type, token_state_type, vocab=None):
         def doc_gen_f():
             for token in document_iter:
                 yield token
@@ -120,8 +119,8 @@ class Document(object):
             pass
         else:
             raise ValueError("Not valid document state type")
-        token_state = Document.create_token_state(token_state_type)
-        return Document(doc_gen_f, document_state, token_state, vocab)
+        token_state = cls.create_token_state(token_state_type)
+        return cls(doc_gen_f, document_state, token_state, vocab)
 
     @staticmethod
     def create_token_state(token_state_type):
@@ -219,25 +218,22 @@ class Document(object):
     ##################
     # Output methods #
     ##################
+    def save_seq(self, seq_config, new_doc_path):
+        pass
+
+    def iter_seq(self, seq_config):
+        pass
+    
+    # TODO delete the following methods
     def iter_seq(self, seq_type, **kwargs):
         seq_func, seq_args = self.seq_func_table[seq_type]
         for key in seq_args:
             assert key in kwargs
         return seq_func(self._iter_gen_func(), **kwargs)
 
-    def save_seq(self, seq_type, new_doc_path, new_doc_path_sub=None, **kwargs):
+    def save_seq(self, seq_type, new_doc_path, **kwargs):
         doc_gen = self.iter_seq(seq_type, **kwargs)
         self._document_state.doc_save(doc_gen, new_doc_path, new_doc_path_sub)
-
-    def iter_seq_with_labels(self, seq_type, **kwargs):
-        seq_func, seq_args = self.seq_label_func_table[seq_type]
-        for key in seq_args:
-            assert key in kwargs
-        return seq_func(self._iter_gen_func(), **kwargs)
-
-    def save_seq_with_labels(self, seq_type, new_doc_path, new_doc_path_sub=None, **kwargs):
-        doc_gen = self.iter_seq_with_labels(seq_type, **kwargs)
-        self._document_state.doc_save_with_label(doc_gen, new_doc_path, new_doc_path_sub)
 
 
 class WordTokenState(TokenState):
@@ -265,6 +261,8 @@ class IdTokenState(TokenState):
 
 
 class TxtDocumentState(DocumentState):
+    """state that this class wil contain has to do with the token state dict
+    and seq_state"""
     def __str__(self):
         return "Format: txt & Token type: " + str(self._token_type)
 
@@ -285,6 +283,10 @@ class TxtDocumentState(DocumentState):
                         yield EOS_ID
         return doc_gen
 
+    def doc_save(self, iter_dict, iter_path):
+        pass
+
+    """
     def doc_save(self, doc_line_gen, doc_path, doc_path_sub=None):
         if not doc_path_sub:
             self._doc_save_src(doc_line_gen, doc_path)
@@ -300,7 +302,7 @@ class TxtDocumentState(DocumentState):
             for src_line_list, tgt_line_list in doc_line_gen:
                 src_f.write(" ".join(src_line_list) + "\n")
                 tgt_f.write(" ".join(tgt_line_list) + "\n")
-
+    """
 
 
 

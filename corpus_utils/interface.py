@@ -2,11 +2,27 @@ import abc
 
 
 class DocumentState(object):
-    def __init__(self, token_type):
-        self._token_type = token_type
+    def __init__(self):
+        self._config_dict = {}
+    
+    def get_all_iter_keys():
+        return self._config_dict.keys()
 
-    def update_token_type(self, token_type):
-        self._token_type = token_type
+    def set_iter_config(self, iter_key, token_type, seq_len, creation_path):
+        self._config_dict[iter_key] = (token_type, seq_len, creation_path)
+
+    def clone_config(self, doc_state):
+        for key in doc_state.get_all_iter_keys():
+            self.set_iter_config(key, doc_state.get_token_type[key], doc_state.get_seq_len[key])
+    
+    def get_token_type(self, iter_key):
+        return self._config_dict.get(iter_key)[0]
+
+    def get_seq_len(self, iter_key):
+        return self._config_dict.get(iter_key)[1]
+
+    def get_creation_path(self, iter_key):
+        return self._config_dict.get(iter_key)[2]
 
     @abc.abstractmethod
     def doc_gen_func(self, doc_path):
@@ -22,6 +38,7 @@ class DocumentState(object):
 
 
 class TokenState(object):
+
     @property
     @abc.abstractmethod
     def token_type(self):

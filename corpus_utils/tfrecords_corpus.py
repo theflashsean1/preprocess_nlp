@@ -99,9 +99,14 @@ class TfrecordsDocumentState(DocumentState):
         else:
             raise NotImplementedError(str(len(items)) + " gen items not handled right now")
 
+    def doc_src_label_save(self, doc_gen, doc_path):
+        pass
+
     def doc_save_with_label(self, doc_gen, doc_path, doc_path_sub=None):
         """
         doc_gen could be (src, label_dict) or (src, tgt, label_dict)
+        self._token_type_dict, self._seq_format_token can be used here
+        check exist
         """
         pass
 
