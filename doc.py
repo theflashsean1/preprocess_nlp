@@ -4,45 +4,33 @@ from preprocess_nlp.corpus_utils.interface import DocumentState, TokenState
 from preprocess_nlp.vocab_utils.common import UNK, SOS, EOS, EOS_ID
 import numpy as np
 import collections
+import preprocess_nlp.doc_format as df
+import preprocess_nlp.doc_token as dt
 
 
 class Document(object):
-    seq_func_table = {
-        "docs_labels": (doc_labels_gen, ["batch_size", "seq_len", "merging_docs", "label_keys", "num_examples"])        
-    }
 
     @classmethod 
     def create_from_file(cls, document_path, token_type, vocab=None):
         if not os.path.exists(document_state_path):
             raise IOError("file not found")
-        token_state = cls.create_token_state(token_state_type)
         if document_state_path.endswith(".txt"):
-            document_state = TxtDocumentState(token_state.token_type)
+            doc_gen_f = df.txt.doc_gen_f(documen_state_path)
         elif document_path.endswith(".tfrecords"):
-            document_state = TfrecordsDocumentState(token_state.token_type)
+            pass
         elif document_path.endswith(".npy"):
-            document_state = None
+            pass
         else:
             raise ValueError("Not valid document state type")
-        doc_gen_f = document_state.doc_gen_func()
-        return cls(doc_gen_f, document_state, token_state, vocab)
+        return cls(doc_gen_f, document_state, token_type, vocab)
 
     @classmethod
     def create_from_iter(cls, document_iter, token_type, vocab=None):
         def doc_gen_f():
             for token in document_iter:
                 yield token
-        token_state = Document.create_token_state(token_state_type)
-        if document_state_type == "txt":
-            document_state = TxtDocumentState(token_state.token_type)
-        elif document_state_type == "tfrecords":
-            document_state = TfrecordsDocumentState(token_state.token_type)
-        elif document_state_type == "npy":
-            pass
-        else:
-            raise ValueError("Not valid document state type")
         token_state = cls.create_token_state(token_state_type)
-        return cls(doc_gen_f, document_state, token_state, vocab)
+        return cls(doc_gen_f, document_state, token_type, vocab)
 
     @staticmethod
     def create_token_state(token_state_type):
@@ -54,15 +42,11 @@ class Document(object):
             raise ValueError("Not valid token state type")
         return token_state
 
-    def __init__(self, doc_gen_f, document_state, token_state, vocab=None):
+    def __init__(self, doc_gen_f, token_type, vocab=None):
         self._vocab = vocab
         self._iter_gen_func = doc_gen_f
-        self._document_state = document_state
-        self._token_state = token_state
+        self._token_type = token_type
         self._label_dict = {}
-
-    def __str__(self):
-        return str(self._document_state) 
 
     def __iter__(self):
         return self._iter_gen_func()
@@ -85,11 +69,7 @@ class Document(object):
     ####################
     @property
     def token_type(self):
-        return self._token_state.token_type
-
-    @property
-    def doc_format(self):
-        return self._document_state.doc_format
+        return self._token_type
 
     def set_vocab(self, vocab):
         self._vocab = vocab
@@ -105,9 +85,12 @@ class Document(object):
     ##########################
     def toggle_word_id(self):
         assert self._vocab is not None
-        self._iter_gen_func = self._token_state.toggle_word_id_gen_func(self._iter_gen_func(), self._vocab)
-        new_token_state = WordTokenState() if isinstance(self._token_state, IdTokenState) else IdTokenState()
-        self._token_state = new_token_state
+        if self._token_type == dt.WORD_TYPE:
+            self._iter_gen_func = dt.word2id_gen_f(self, self._vocab)
+            self._token_type = dt.ID_TYPE
+        else:
+            self._iter_gen_func = dt.id2word_gen_f(self, self._vocab)
+            self._token_type = dt.WORD_TYPE
 
     def mask_unk(self):
         assert self._vocab is not None
@@ -124,34 +107,5 @@ class Document(object):
                 else:
                     yield token
         self._iter_gen_func = mask_unk_f
-
-    def convert2txt(self):
-        self._document_state = TxtDocumentState(self.token_type)
-
-    def convert2tfrecords(self):
-        self._document_state = TfrecordsDocumentState(self.token_type)
-
-    def convert2np_array(self):
-        pass
-
-    ##################
-    # Output methods #
-    ##################
-    def save_seq(self, seq_config, new_doc_path):
-        pass
-
-    def iter_seq(self, seq_config):
-        pass
-    
-    # TODO delete the following methods
-    def iter_seq(self, seq_type, **kwargs):
-        seq_func, seq_args = self.seq_func_table[seq_type]
-        for key in seq_args:
-            assert key in kwargs
-        return seq_func(self._iter_gen_func(), **kwargs)
-
-    def save_seq(self, seq_type, new_doc_path, **kwargs):
-        doc_gen = self.iter_seq(seq_type, **kwargs)
-        self._document_state.doc_save(doc_gen, new_doc_path, new_doc_path_sub)
 
 
