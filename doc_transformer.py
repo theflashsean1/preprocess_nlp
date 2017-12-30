@@ -4,6 +4,9 @@ class DocTransformer(object):
     seq_lens = []
     iter_keys = []
 
+    def __len__(self):
+        return len(seq_lens)
+
     @abc.abstractmethod
     def get_iters(doc):
         pass

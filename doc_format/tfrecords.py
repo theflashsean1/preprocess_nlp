@@ -1,5 +1,7 @@
 import tensorflow as tf
+from functools import partial
 from preprocess_nlp.corpus_utils.interface import DocumentState
+from preprocess_nlp.doc_token import WORD_TYPE, ID_TYPE, VALUE_TYPE
 
 
 def _bytes_feature(value):
@@ -35,13 +37,20 @@ def _feature_dict(int_feature_dict, bytes_feature_dict):
     return feature_dict
 
 
-def _feature_list_dict(int_feature_dict, bytes_feature_dict):
+def _feature_lists_dict(int_feature_dict, bytes_feature_dict):
     feature_dict = {}
     for key, val in int_feature_dict.items():
         feature_dict[key] = _int64_feature_list(val, _int64_feature)
     for key, val in bytes_feature_dict.items():
         feature_dict[key] = _bytes_feature_list(val, _bytes_feature)
     return feature_dict
+
+
+def make_example(feature_dict):
+    ex = tf.train.Example(
+            features=tf.train.Features(features=feature_dict)   
+         )
+    return ex
 
 
 def make_sequence_example(context_feature_dict, feature_list_dict):
@@ -56,6 +65,30 @@ def make_sequence_example(context_feature_dict, feature_list_dict):
     return ex
 
 
+def doc_save(self, doc, doc_transformer, tfrecords_save_path):
+    feature_fs = []
+    for token_type, seq_len in zip(doc_transformer.token_types, doc_transformer.seq_lens):
+        if token_type == WORD_TYPE:
+            if seq_len > 1:
+                feature_fs.append((partial(_bytes_feature_list, byte_feature_func=_bytes_feature), 1))
+            else:
+                feature_fs.append((_bytes_feature, 0))
+        elif token_type == ID_TYPE:
+            if seq_len > 1:
+                feature_fs.append((partial(_int64_feature_list, int_feature_func=_int64_feature), 1))
+            else:
+                feature_fs.append((_int64_feature, 0))
+
+    with tf.python_io.TFRecordWriter(tfrecords_save_path) as writer:
+        for seqs in doc_transformer.get_iters(doc):
+            context_feature_dict = {doc_transformer.iter_keys[i]:feature_fs[i][0](seq) 
+                     for i, seq in  enumerate(seqs) if feature_fs[i][1]==0}
+            feature_lists_dict = {doc_transformer.iter_keys[i]:feature_fs[i][0](seq) 
+                     for i, seq in  enumerate(seqs) if feature_fs[i][1]==1}
+            seq_ex = make_sequence_example(context_feature_dict, feature_list_dict)
+            writer.write(seq_ex.SerializeToString())
+
+"""
 # TODO not needed here for recovering data from .tfrecords
 def get_parse_func(src_type, tgt_type):
     def _parse(example_proto):
@@ -80,39 +113,6 @@ def get_parse_func2(src_type, tgt_type, batch_size):
                 'flag_new_doc': tf.FixedLenFeature([], tf.int32)
             }
         )
-
-
-class TfrecordsDocumentState(DocumentState):
-    @property
-    def doc_format(self):
-        return "tfrecords"
-
-    def doc_gen_func(self, doc_path):
-        def doc_gen():
-            pass
-        return doc_gen
-
-    def doc_save(self, doc_gen, doc_path, doc_path_sub=None):
-        if self._token_type == str:
-            feature_func = _bytes_feature
-        items = next(doc_gen)
-        if len(items) == 2:
-            pass
-        elif len(items) == 1:
-            pass
-        else:
-            raise NotImplementedError(str(len(items)) + " gen items not handled right now")
-
-    def doc_src_label_save(self, doc_gen, doc_path):
-        pass
-
-    def doc_save_with_label(self, doc_gen, doc_path, doc_path_sub=None):
-        """
-        doc_gen could be (src, label_dict) or (src, tgt, label_dict)
-        self._token_type_dict, self._seq_format_token can be used here
-        check exist
-        """
-        pass
-
+"""
 
 

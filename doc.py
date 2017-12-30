@@ -12,7 +12,7 @@ class Document(object):
     }
 
     @classmethod 
-    def create_from_file(cls, document_path, token_state_type, vocab=None):
+    def create_from_file(cls, document_path, token_type, vocab=None):
         if not os.path.exists(document_state_path):
             raise IOError("file not found")
         token_state = cls.create_token_state(token_state_type)
@@ -28,7 +28,7 @@ class Document(object):
         return cls(doc_gen_f, document_state, token_state, vocab)
 
     @classmethod
-    def create_from_iter(cls, document_iter, document_state_type, token_state_type, vocab=None):
+    def create_from_iter(cls, document_iter, token_type, vocab=None):
         def doc_gen_f():
             for token in document_iter:
                 yield token
@@ -153,75 +153,5 @@ class Document(object):
     def save_seq(self, seq_type, new_doc_path, **kwargs):
         doc_gen = self.iter_seq(seq_type, **kwargs)
         self._document_state.doc_save(doc_gen, new_doc_path, new_doc_path_sub)
-
-
-class WordTokenState(TokenState):
-    token_type = str
-
-    @staticmethod
-    def toggle_word_id_gen_func(document_iter, vocabulary):
-        def toggle_word_id_gen():
-            for word_token in document_iter:
-                id_token = vocabulary.word2id_lookup(word_token)
-                yield id_token  # Transformed
-        return toggle_word_id_gen
-
-
-class IdTokenState(TokenState):
-    token_type = int
-
-    @staticmethod
-    def toggle_word_id_gen_func(document_iter, vocabulary):
-        def toggle_word_id_gen():
-            for id_token in document_iter:
-                word_token = vocabulary.id2word_lookup(int(id_token))
-                yield word_token  # Transformed
-        return toggle_word_id_gen
-
-
-class TxtDocumentState(DocumentState):
-    """state that this class wil contain has to do with the token state dict
-    and seq_state"""
-    def __str__(self):
-        return "Format: txt & Token type: " + str(self._token_type)
-
-    @property
-    def doc_format(self):
-        return "txt"
-
-    def doc_gen_func(self, doc_path):
-        def doc_gen():
-            with open(doc_path) as f:
-                for line in f:
-                    tokens = line.split()
-                    for token in tokens:
-                        yield token
-                    if self._token_type == str:
-                        yield EOS
-                    else:
-                        yield EOS_ID
-        return doc_gen
-
-    def doc_save(self, iter_dict, iter_path):
-        pass
-
-    """
-    def doc_save(self, doc_line_gen, doc_path, doc_path_sub=None):
-        if not doc_path_sub:
-            self._doc_save_src(doc_line_gen, doc_path)
-        else: self._doc_save_src_tgt(doc_line_gen, doc_path, doc_path_sub)
-    
-    def _doc_save_src(self, doc_line_gen, doc_path):
-        with open(doc_path, "w") as f:
-            for line_list in doc_line_gen:
-                f.write(" ".join(line_list) + "\n")
-
-    def _doc_save_src_tgt(self, doc_line_gen, doc_path, doc_path_sub):
-        with open(doc_path, "w") as src_f, open(doc_path_sub, "w") as tgt_f:
-            for src_line_list, tgt_line_list in doc_line_gen:
-                src_f.write(" ".join(src_line_list) + "\n")
-                tgt_f.write(" ".join(tgt_line_list) + "\n")
-    """
-
 
 

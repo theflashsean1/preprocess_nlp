@@ -1,5 +1,16 @@
 import os 
 
+class MultiWriteOpen:
+    def __init__(self, *files):
+        self._files = [open(f, "w") for f in files]
+
+    def __enter__(self):
+        return self._files
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        for f in self._files:
+            f.close()
+
 
 class AggregatedReadOpen:
     def __init__(self, *files):
@@ -55,3 +66,8 @@ def aggregate_files(file_name, *file_paths):
         with AggregatedReadOpen(*file_paths) as f_read:
             for line in f_read:
                 f_write.write(line)
+
+
+
+
+
