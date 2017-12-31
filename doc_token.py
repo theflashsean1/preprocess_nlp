@@ -9,7 +9,7 @@ def word2id_gen_f(doc, vocabulary):
         for word_token in doc_iter:
             id_token = vocabulary.word2id_lookup(word_token)
             yield id_token 
-    return toggle_word_id_gen
+    return word2id_gen
 
 
 def id2word_gen_f(doc, vocabulary):
@@ -18,5 +18,5 @@ def id2word_gen_f(doc, vocabulary):
         for id_token in doc_iter:
             word_token = vocabulary.id2word_lookup(int(id_token))
             yield word_token 
-    return toggle_word_id_gen
+    return id2word_gen
 

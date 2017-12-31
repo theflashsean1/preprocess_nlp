@@ -1,6 +1,5 @@
 import tensorflow as tf
 from functools import partial
-from preprocess_nlp.corpus_utils.interface import DocumentState
 from preprocess_nlp.doc_token import WORD_TYPE, ID_TYPE, VALUE_TYPE
 
 
@@ -85,7 +84,7 @@ def doc_save(self, doc, doc_transformer, tfrecords_save_path):
                      for i, seq in  enumerate(seqs) if feature_fs[i][1]==0}
             feature_lists_dict = {doc_transformer.iter_keys[i]:feature_fs[i][0](seq) 
                      for i, seq in  enumerate(seqs) if feature_fs[i][1]==1}
-            seq_ex = make_sequence_example(context_feature_dict, feature_list_dict)
+            seq_ex = make_sequence_example(context_feature_dict, feature_lists_dict)
             writer.write(seq_ex.SerializeToString())
 
 """

@@ -1,12 +1,12 @@
 import os
-from preprocess_nlp import file_utils
+import preprocess_nlp.file_utils as fu
 
 
 def textline_file_split(data_path, train_size, eval_size, test_size):
     with open(data_path, "r") as data_f:
         def write_to_f(data_type, data_size):
             extended_signature = data_type + "_" + str(data_size)
-            new_path = file_utils.common.extend_path_basename(data_path, extended_signature)
+            new_path = fu.common.extend_path_basename(data_path, extended_signature)
             with open(new_path, "w") as f_w:
                 for _ in range(data_size):
                     try:

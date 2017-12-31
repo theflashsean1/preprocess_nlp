@@ -1,9 +1,9 @@
 from gensim import corpora
-from preprocess_nlp import file_utils
+import preprocess_nlp.file_utils as fu
 
 
 def create_dictionary(*text_paths):
-    with file_utils.common.AggregatedReadOpen(*text_paths) as read_f:
+    with fu.common.AggregatedReadOpen(*text_paths) as read_f:
         dictionary = corpora.Dictionary(line.split() for line in read_f)
     return dictionary
 

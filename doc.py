@@ -1,6 +1,4 @@
 import os
-from preprocess_nlp.corpus_utils.tfrecords_corpus import TfrecordsDocumentState
-from preprocess_nlp.corpus_utils.interface import DocumentState, TokenState
 from preprocess_nlp.vocab_utils.common import UNK, SOS, EOS, EOS_ID
 import numpy as np
 import collections
@@ -12,35 +10,24 @@ class Document(object):
 
     @classmethod 
     def create_from_file(cls, document_path, token_type, vocab=None):
-        if not os.path.exists(document_state_path):
+        if not os.path.exists(document_path):
             raise IOError("file not found")
-        if document_state_path.endswith(".txt"):
-            doc_gen_f = df.txt.doc_gen_f(documen_state_path)
+        if document_path.endswith(".txt"):
+            doc_gen_f = df.txt.doc_gen_f(document_path)
         elif document_path.endswith(".tfrecords"):
             pass
         elif document_path.endswith(".npy"):
             pass
         else:
             raise ValueError("Not valid document state type")
-        return cls(doc_gen_f, document_state, token_type, vocab)
+        return cls(doc_gen_f, token_type, vocab)
 
     @classmethod
     def create_from_iter(cls, document_iter, token_type, vocab=None):
         def doc_gen_f():
             for token in document_iter:
                 yield token
-        token_state = cls.create_token_state(token_state_type)
-        return cls(doc_gen_f, document_state, token_type, vocab)
-
-    @staticmethod
-    def create_token_state(token_state_type):
-        if token_state_type == "word":
-            token_state = WordTokenState()
-        elif token_state_type == "id":
-            token_state = IdTokenState()
-        else:
-            raise ValueError("Not valid token state type")
-        return token_state
+        return cls(doc_gen_f, token_type, vocab)
 
     def __init__(self, doc_gen_f, token_type, vocab=None):
         self._vocab = vocab
