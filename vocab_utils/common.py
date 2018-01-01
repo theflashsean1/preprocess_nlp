@@ -28,7 +28,7 @@ class VocabCreator:
 
     def update_vocab_from_sentence(self, sentence):
         for word in sentence.split():
-            self.update_vocab_from_token(word)
+            self.update_vocab_from_word(word)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         for special_token in self._special_tokens:

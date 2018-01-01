@@ -2,18 +2,21 @@ import os
 from preprocess_nlp.vocab_utils.common import UNK, SOS, EOS, EOS_ID
 import numpy as np
 import collections
-import preprocess_nlp.doc_format as df
+import preprocess_nlp.doc_format.txt as dtxt
+import preprocess_nlp.doc_format.tfrecords as dtfrecords
 import preprocess_nlp.doc_token as dt
+import pdb
 
 
 class Document(object):
 
     @classmethod 
     def create_from_file(cls, document_path, token_type, vocab=None):
+        assert token_type==dt.WORD_TYPE or token_type==dt.ID_TYPE
         if not os.path.exists(document_path):
             raise IOError("file not found")
         if document_path.endswith(".txt"):
-            doc_gen_f = df.txt.doc_gen_f(document_path)
+            doc_gen_f = dtxt.doc_gen_f(document_path, token_type)
         elif document_path.endswith(".tfrecords"):
             pass
         elif document_path.endswith(".npy"):
@@ -24,6 +27,7 @@ class Document(object):
 
     @classmethod
     def create_from_iter(cls, document_iter, token_type, vocab=None):
+        assert token_type==dt.WORD_TYPE or token_type==dt.ID_TYPE
         def doc_gen_f():
             for token in document_iter:
                 yield token

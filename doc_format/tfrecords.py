@@ -4,11 +4,11 @@ from preprocess_nlp.doc_token import WORD_TYPE, ID_TYPE, VALUE_TYPE
 
 
 def _bytes_feature(value):
-    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value.encode()]))
 
 
 def _bytes_features(values):
-    return tf.train.Feature(bytes_list=tf.train.BytesList(value=values))
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value.encode() for value in values]))
 
 
 def _bytes_feature_list(values, byte_feature_func):
@@ -64,7 +64,7 @@ def make_sequence_example(context_feature_dict, feature_list_dict):
     return ex
 
 
-def doc_save(self, doc, doc_transformer, tfrecords_save_path):
+def doc_save(doc, doc_transformer, tfrecords_save_path):
     feature_fs = []
     for token_type, seq_len in zip(doc_transformer.token_types, doc_transformer.seq_lens):
         if token_type == WORD_TYPE:
@@ -86,6 +86,32 @@ def doc_save(self, doc, doc_transformer, tfrecords_save_path):
                      for i, seq in  enumerate(seqs) if feature_fs[i][1]==1}
             seq_ex = make_sequence_example(context_feature_dict, feature_lists_dict)
             writer.write(seq_ex.SerializeToString())
+
+
+def word2vec_iter(dataset_path):
+    def _parse(example_proto):
+        features=tf.parse_single_example(
+                    serialized=example_proto,
+                    features={
+                        'center': tf.FixedLenFeature([], tf.string),
+                        'context': tf.FixedLenFeature([], tf.string)
+                    }
+                )
+        return features['center'], features['context'] 
+    dataset = tf.data.TFRecordDataset(["weather_train.tfrecords"])
+    dataset = dataset.map(_parse)
+    iterator = dataset = dataset.make_initializable_iterator()
+    next_element = iterator.get_next()
+
+    with tf.Session() as sess:
+        sess.run(iterator.initializer)
+        while True:
+            try:
+                res = sess.run(next_element)
+                center, context = res
+                yield center.decode(), context.decode()
+            except tf.errors.OutOfRangeError:
+                break
 
 """
 # TODO not needed here for recovering data from .tfrecords
@@ -113,5 +139,4 @@ def get_parse_func2(src_type, tgt_type, batch_size):
             }
         )
 """
-
 

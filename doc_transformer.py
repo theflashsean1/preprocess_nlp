@@ -10,7 +10,7 @@ class DocTransformer(object):
         return len(self.seq_lens)
 
     @abc.abstractmethod
-    def get_iters(self, *docs):
+    def get_iters(self, doc):
         pass
 
     @property
@@ -30,8 +30,8 @@ class IdentityTransform(DocTransformer):
     def __init__(self, token_type):
         self._token_type = [token_type]
 
-    def get_iters(self, *docs):
-        doc = docs
+    def get_iters(self, doc):
+        # doc = docs
         return iter(doc)
 
 
@@ -48,8 +48,7 @@ class Word2VecTransform(DocTransformer):
         self._max_num_examples = max_num_examples
         self._token_type = token_type
     
-    def get_iters(self, *docs):
-        doc = docs
+    def get_iters(self, doc):
         doc_gen = iter(doc)
         num_example = 0
         center_word = next(doc_gen)
@@ -59,8 +58,10 @@ class Word2VecTransform(DocTransformer):
             forward_context_words.append(next(doc_gen))
         while len(forward_context_words) != 0 and num_example < self._max_num_examples:
             for context_word in backward_context_words + forward_context_words:
-                yield [center_word], [context_word]
-            num_example += 1
+                num_example += 1
+                yield center_word, context_word
+                if num_example >= self._max_num_examples:
+                    return
             backward_context_words.append(center_word)
             center_word = forward_context_words.pop(0)
             try:

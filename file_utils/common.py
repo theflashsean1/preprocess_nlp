@@ -57,7 +57,7 @@ class ReadReplaceOpen:
 def extend_path_basename(data_path, extended_signature):
     basename = os.path.basename(data_path)
     filename, file_extension = os.path.splitext(basename)
-    data_path = data_path.replace(filename, filename+"_"+extended_signature)
+    data_path = data_path.replace(basename, filename+"_"+extended_signature+file_extension)
     return data_path
 
 
