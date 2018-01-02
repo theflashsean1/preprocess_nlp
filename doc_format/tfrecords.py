@@ -88,7 +88,7 @@ def doc_save(doc, doc_transformer, tfrecords_save_path):
             writer.write(seq_ex.SerializeToString())
 
 
-def word2vec_iter(dataset_path):
+def word2vec_iter_tensors(dataset_path, batch_size, vocab_reader=None):
     def _parse(example_proto):
         features=tf.parse_single_example(
                     serialized=example_proto,
@@ -98,17 +98,29 @@ def word2vec_iter(dataset_path):
                     }
                 )
         return features['center'], features['context'] 
-    dataset = tf.data.TFRecordDataset(["weather_train.tfrecords"])
+    dataset = tf.data.TFRecordDataset([dataset_path])
     dataset = dataset.map(_parse)
+    if vocab_reader:
+        dataset = dataset.map(
+                    lambda src, tgt: (
+                        vocab_reader.word2id_lookup(src),
+                        vocab_reader.word2id_lookup(tgt)
+                    )
+                )
+    # dataset = dataset.batch(batch_size)
+    dataset = dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
     iterator = dataset = dataset.make_initializable_iterator()
-    next_element = iterator.get_next()
+    center, context = iterator.get_next()
+    return iterator.initializer, center, context
 
+
+def word2vec_iter(dataset_path, batch_size):
+    initializer, center, context = word2vec_iter_tensors(dataset_path, batch_size)
     with tf.Session() as sess:
-        sess.run(iterator.initializer)
+        sess.run(initializer)
         while True:
             try:
-                res = sess.run(next_element)
-                center, context = res
+                center, context = sess.run([center, context])
                 yield center.decode(), context.decode()
             except tf.errors.OutOfRangeError:
                 break
