@@ -1,9 +1,9 @@
 import nltk
-from preprocess_nlp import file_utils
+from preprocess_nlp.file_utils import common
 
 
 def notes_tokenize(data_path):
-    write_f_path = file_utils.common.extend_path_basename(data_path, "preprocessed")
+    write_f_path = common.extend_path_basename(data_path, "preprocessed")
     with open(data_path) as read_f:
         with open(write_f_path, "w") as write_f:
             for line in read_f:
@@ -18,7 +18,7 @@ def notes_tokenize(data_path):
                     new_words.append(word.lower())
                 write_f.write(" ".join(new_words) + "\n")
 
-    with file_utils.common.ReadReplaceOpen(write_f_path) as f:
+    with common.ReadReplaceOpen(write_f_path) as f:
         for line in f:
             new_tokens = []
             tokens = nltk.tokenize.word_tokenize(line)
@@ -33,7 +33,7 @@ def notes_tokenize(data_path):
                     new_tokens.append(token)
             f.write(" ".join(new_tokens) + "\n")
     
-    with file_utils.common.ReadReplaceOpen(write_f_path) as f:
+    with common.ReadReplaceOpen(write_f_path) as f:
         for line in f:
             new_tokens = []
             tokenizer = nltk.tokenize.RegexpTokenizer(r"\w+")

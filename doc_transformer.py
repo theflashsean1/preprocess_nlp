@@ -1,6 +1,7 @@
 import abc
 import numpy as np
 from preprocess_nlp.doc_token import WORD_TYPE, ID_TYPE, VALUE_TYPE
+import pdb
 
 
 class DocTransformer(object):
@@ -75,7 +76,7 @@ class Word2VecTransform(DocTransformer):
 
 
 class Sca2wordTransform(DocTransformer):
-    iter_Keys = ["u_i_token", "w_i", "v_i_token",  "u_j_token", "w_j", "v_j_token"]
+    iter_keys = ["u_i_token", "w_i", "v_i_token",  "u_j_token", "w_j", "v_j_token"]
     seq_lens = [1, 1, 1, 1, 1, 1]
 
     @property
@@ -89,7 +90,7 @@ class Sca2wordTransform(DocTransformer):
 
     def get_iters(self, doc):
         def is_num(token):
-            return w.lstrip('-').replace('.', '', 1).isdigit()
+            return token.lstrip('-').replace('.', '', 1).isdigit()
         def find_next_u_w_v(doc_iter):
             try:
                 u_w_v = [next(doc_iter), next(doc_iter), next(doc_iter)]
@@ -97,6 +98,8 @@ class Sca2wordTransform(DocTransformer):
                 return None
             while True:
                 u, w, v = u_w_v
+                #if is_num(w):
+                #    pdb.set_trace()
                 if is_num(w) and (not is_num(u)) and (not is_num(v)):
                     return u_w_v
                 try:
@@ -106,12 +109,12 @@ class Sca2wordTransform(DocTransformer):
                     return None
 
         doc_gen = iter(doc)
-        u_w_v_i = find_next_u_w_v(doc_iter)
+        u_w_v_i = find_next_u_w_v(doc_gen)
         if not u_w_v_i:
             raise ValueError("Not even a single example")
-        comparisons = [find_next_u_w_v(doc_gen) for _ in range(each_num_example)]
+        comparisons = [find_next_u_w_v(doc_gen) for _ in range(self._each_num_example)]
         count = 0
-        while count < max_num_examples:
+        while count < self._max_num_examples:
             if comparisons[0] == None:
                 print("only found " + str(count) + " examples")
                 break
@@ -121,7 +124,7 @@ class Sca2wordTransform(DocTransformer):
                 u_i, w_i, v_i = u_w_v_i
                 u_j, w_j, v_j = u_w_v_j
                 count+=1
-                yield u_i, w_i, v_i, u_j, w_j, v_j
+                yield u_i, int(float(w_i)), v_i, u_j, int(float(w_j)), v_j
             u_w_v_i = comparisons.pop(0)
             comparisons.append(find_next_u_w_v(doc_gen))
 

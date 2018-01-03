@@ -1,6 +1,7 @@
 import tensorflow as tf
 from functools import partial
 from preprocess_nlp.doc_token import WORD_TYPE, ID_TYPE, VALUE_TYPE
+import pdb
 
 
 def _bytes_feature(value):
@@ -72,12 +73,13 @@ def doc_save(doc, doc_transformer, tfrecords_save_path):
                 feature_fs.append((partial(_bytes_feature_list, byte_feature_func=_bytes_feature), 1))
             else:
                 feature_fs.append((_bytes_feature, 0))
-        elif token_type == ID_TYPE:
+        elif token_type == ID_TYPE or token_type == VALUE_TYPE:
             if seq_len > 1:
                 feature_fs.append((partial(_int64_feature_list, int_feature_func=_int64_feature), 1))
             else:
                 feature_fs.append((_int64_feature, 0))
-
+        else:
+            raise ValueError("Not valid token type")
     with tf.python_io.TFRecordWriter(tfrecords_save_path) as writer:
         for seqs in doc_transformer.get_iters(doc):
             context_feature_dict = {doc_transformer.iter_keys[i]:feature_fs[i][0](seq) 
@@ -109,7 +111,7 @@ def word2vec_iter_tensors(dataset_path, batch_size, vocab_reader=None):
                 )
     # dataset = dataset.batch(batch_size)
     dataset = dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
-    iterator = dataset = dataset.make_initializable_iterator()
+    iterator = dataset.make_initializable_iterator()
     center, context = iterator.get_next()
     return iterator.initializer, center, context
 
@@ -124,6 +126,42 @@ def word2vec_iter(dataset_path, batch_size):
                 yield center.decode(), context.decode()
             except tf.errors.OutOfRangeError:
                 break
+
+
+def sca2word_iter_tensors(dataset_path, batch_size, vocab_reader=None):
+    def _parse(example_proto):
+        features=tf.parse_single_example(
+                    serialized=example_proto,
+                    features={
+                        'u_i_token': tf.FixedLenFeature([], tf.string),
+                        'w_i': tf.FixedLenFeature([], tf.int64),
+                        'v_i_token': tf.FixedLenFeature([], tf.string),
+                        'u_j_token': tf.FixedLenFeature([], tf.string),
+                        'w_j': tf.FixedLenFeature([], tf.int64),
+                        'v_j_token': tf.FixedLenFeature([], tf.string)
+                    }
+                )
+        return features['u_i_token'], features['w_i'], features['v_i_token'], features['u_j_token'], features['w_j'], features['v_j_token']
+    dataset = tf.data.TFRecordDataset([dataset_path])
+    dataset = dataset.map(_parse)
+    if vocab_reader:
+        dataset = dataset.map(
+                    lambda u_i, w_i, v_i, u_j, w_j, v_j:(
+                        vocab_reader.word2id_lookup(u_i),
+                        w_i,
+                        vocab_reader.word2id_lookup(v_i),
+                        vocab_reader.word2id_lookup(u_j),
+                        w_j,
+                        vocab_reader.word2id_lookup(v_j)
+                    )
+                )
+    dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
+    iterator = dataset.make_initializable_iterator()
+    u_i, w_i, v_i, u_j, w_j, v_j = iterator.get_next()
+    return iterator.initializer, u_i, w_i, v_i, u_j, w_j, v_j
+
+
+
 
 """
 # TODO not needed here for recovering data from .tfrecords
