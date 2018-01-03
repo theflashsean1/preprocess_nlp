@@ -2,8 +2,8 @@ import nltk
 from preprocess_nlp import file_utils
 
 
-def report_tokenize(report_path):
-    write_f_path = file_utils.common.extend_path_basename(report_path, "tokenized")
+def report_tokenize(report_path, mode="word2vec"):
+    write_f_path = file_utils.common.extend_path_basename(report_path, "tokenized_"+mode)
     with open(report_path) as read_f:
         with open(write_f_path, "w") as write_f:
             for line in read_f:
@@ -17,7 +17,7 @@ def report_tokenize(report_path):
             tokens = nltk.tokenize.word_tokenize(line)
             for token in tokens:
                 #if any(char.isdigit() for char in token):
-                if token.lstrip('-').replace('.', '', 1).isdigit():
+                if token.lstrip('-').replace('.', '', 1).isdigit() and mode=="word2vec":
                     # int, neg, float
                     new_tokens.append("num")
                 elif token == ".":
@@ -35,7 +35,7 @@ def report_tokenize(report_path):
             tokenizer = nltk.tokenize.RegexpTokenizer(r"\w+")
             tokens = tokenizer.tokenize(line)
             for i, token in enumerate(tokens):
-                if token == "num":
+                if token == "num" and mode=="word2vec":
                     tokens[i] = "<num>"
                 elif token == "eos":
                     tokens[i] = "</s>"

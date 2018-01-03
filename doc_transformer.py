@@ -1,5 +1,6 @@
 import abc
 import numpy as np
+from preprocess_nlp.doc_token import WORD_TYPE, ID_TYPE, VALUE_TYPE
 
 
 class DocTransformer(object):
@@ -73,6 +74,58 @@ class Word2VecTransform(DocTransformer):
                 backward_context_words.pop(0)
 
 
+class Sca2wordTransform(DocTransformer):
+    iter_Keys = ["u_i_token", "w_i", "v_i_token",  "u_j_token", "w_j", "v_j_token"]
+    seq_lens = [1, 1, 1, 1, 1, 1]
+
+    @property
+    def token_types(self):
+        return [self._token_type, VALUE_TYPE, self._token_type, self._token_type, VALUE_TYPE, self._token_type]
+
+    def __init__(self, each_num_example, max_num_examples, token_type):
+        self._max_num_examples = max_num_examples
+        self._token_type = token_type
+        self._each_num_example = each_num_example
+
+    def get_iters(self, doc):
+        def is_num(token):
+            return w.lstrip('-').replace('.', '', 1).isdigit()
+        def find_next_u_w_v(doc_iter):
+            try:
+                u_w_v = [next(doc_iter), next(doc_iter), next(doc_iter)]
+            except StopIteration:
+                return None
+            while True:
+                u, w, v = u_w_v
+                if is_num(w) and (not is_num(u)) and (not is_num(v)):
+                    return u_w_v
+                try:
+                    u_w_v.pop(0)
+                    u_w_v.append(next(doc_iter))
+                except StopIteration:
+                    return None
+
+        doc_gen = iter(doc)
+        u_w_v_i = find_next_u_w_v(doc_iter)
+        if not u_w_v_i:
+            raise ValueError("Not even a single example")
+        comparisons = [find_next_u_w_v(doc_gen) for _ in range(each_num_example)]
+        count = 0
+        while count < max_num_examples:
+            if comparisons[0] == None:
+                print("only found " + str(count) + " examples")
+                break
+            for u_w_v_j in comparisons:
+                if not u_w_v_j:
+                    break
+                u_i, w_i, v_i = u_w_v_i
+                u_j, w_j, v_j = u_w_v_j
+                count+=1
+                yield u_i, w_i, v_i, u_j, w_j, v_j
+            u_w_v_i = comparisons.pop(0)
+            comparisons.append(find_next_u_w_v(doc_gen))
+
+
 class RnnLangModelTransform(DocTransformer):
     iter_keys = ["src", "tgt"]
 
@@ -123,7 +176,7 @@ class DocLabelsTransform(DocTransformer):
 
     @property
     def token_types(self):
-        return [self._token_type, "id", "id"]
+        return [self._token_type, ID_TYPE, ID_TYPE]
 
     def __init__(self, batch_size, seq_len, num_examples, token_type):
         self._batch_size = batch_size
