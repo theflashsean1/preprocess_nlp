@@ -87,20 +87,25 @@ class Sca2wordTransform(DocTransformer):
         self._max_num_examples = max_num_examples
         self._token_type = token_type
         self._each_num_example = each_num_example
+    
+    @staticmethod
+    def is_num(token):
+        return token.lstrip('-').replace('.', '', 1).isdigit()
+
+    @classmethod
+    def is_u_w_v(cl, u_w_v):
+        return cls.is_num(w) and (not cls.is_num(u)) and (not cls.is_num(v))
 
     def get_iters(self, doc):
-        def is_num(token):
-            return token.lstrip('-').replace('.', '', 1).isdigit()
         def find_next_u_w_v(doc_iter):
             try:
                 u_w_v = [next(doc_iter), next(doc_iter), next(doc_iter)]
             except StopIteration:
                 return None
             while True:
-                u, w, v = u_w_v
                 #if is_num(w):
                 #    pdb.set_trace()
-                if is_num(w) and (not is_num(u)) and (not is_num(v)):
+                if self.is_u_w_v(u_w_v):
                     return u_w_v
                 try:
                     u_w_v.pop(0)
