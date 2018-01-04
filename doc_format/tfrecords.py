@@ -155,7 +155,8 @@ def sca2word_iter_tensors(dataset_path, batch_size, vocab_reader=None):
                         vocab_reader.word2id_lookup(v_j)
                     )
                 )
-    dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
+    # dataset = dataset.shuffle(8000)
+    dataset = dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
     iterator = dataset.make_initializable_iterator()
     u_i, w_i, v_i, u_j, w_j, v_j = iterator.get_next()
     return iterator.initializer, u_i, w_i, v_i, u_j, w_j, v_j

@@ -93,7 +93,8 @@ class Sca2wordTransform(DocTransformer):
         return token.lstrip('-').replace('.', '', 1).isdigit()
 
     @classmethod
-    def is_u_w_v(cl, u_w_v):
+    def is_u_w_v(cls, u_w_v):
+        u, w, v = u_w_v
         return cls.is_num(w) and (not cls.is_num(u)) and (not cls.is_num(v))
 
     def get_iters(self, doc):
