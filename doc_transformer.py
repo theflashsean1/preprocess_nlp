@@ -135,6 +135,45 @@ class Sca2wordTransform(DocTransformer):
             comparisons.append(find_next_u_w_v(doc_gen))
 
 
+class Sca2ScapairTransformer(DocTransformer):
+    iter_keys = ["w_i", "w_j"]
+    seq_lens = [1, 1]
+
+    @property
+    def token_types(self):
+        return [self._token_type, self._token_type]
+
+    def __init__(self, each_num_example, max_num_examples, token_type):
+        self._each_num_example = each_num_example
+        self._max_num_examples = max_num_examples
+        self._token_type = token_type
+
+    def get_iters(self, doc):
+        def find_w(doc_iter):
+            try:
+                w = next(doc_iter)
+                return w
+            except StopIteration:
+                return None
+        count = 0 
+        doc_gen = iter(doc)
+        w_i = find_w(doc_gen)
+        if not w_i:
+            raise ValueError("Not even a single example")
+        w_js = [find_w(doc_gen) for _ in range(self._each_num_example)]
+        while count < self._max_num_examples:
+            if w_js[0] == None:
+                print("only found " + str(count) + " examples")
+                break
+            for w_j in w_js:
+                if not w_j:
+                    break
+                count+=1
+                yield w_i, w_j
+            w_i = w_js.pop(0)
+            w_js.append(find_w(doc_gen))
+            
+
 class RnnLangModelTransform(DocTransformer):
     iter_keys = ["src", "tgt"]
 
