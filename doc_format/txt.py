@@ -13,7 +13,7 @@ def doc_gen_f(doc_path, token_type):
                     yield token
                 if token_type == dt.WORD_TYPE:
                     yield EOS
-                else:
+                elif token_type == dt.ID_TYPE:
                     yield EOS_ID
     return doc_gen
 

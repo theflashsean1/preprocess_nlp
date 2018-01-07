@@ -162,6 +162,22 @@ def sca2word_iter_tensors(dataset_path, batch_size, vocab_reader=None):
     return iterator.initializer, u_i, w_i, v_i, u_j, w_j, v_j
 
 
+def sca2scapair_iter_tensors(dataset_path, batch_size):
+    def _parse(example_proto):
+        features=tf.parse_single_example(
+                serialized=example_proto,
+                features={
+                    'w_i': tf.FixedLenFeature([], tf.int64),
+                    'w_j': tf.FixedLenFeature([], tf.int64)
+                }
+            )
+        return features['w_i'], features['w_j']
+    dataset = tf.data.TFRecordDataset([dataset_path])
+    dataset = dataset.map(_parse)
+    dataset = dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
+    iterator = dataset.make_initializable_iterator()
+    w_i, w_j = iterator.get_next()
+    return iterator.initializer, w_i, w_j
 
 
 """

@@ -169,7 +169,7 @@ class Sca2ScapairTransformer(DocTransformer):
                 if not w_j:
                     break
                 count+=1
-                yield w_i, w_j
+                yield int(w_i), int(w_j)
             w_i = w_js.pop(0)
             w_js.append(find_w(doc_gen))
             

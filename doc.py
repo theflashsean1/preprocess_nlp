@@ -12,7 +12,7 @@ class Document(object):
 
     @classmethod 
     def create_from_file(cls, document_path, token_type, vocab=None):
-        assert token_type==dt.WORD_TYPE or token_type==dt.ID_TYPE
+        assert token_type==dt.WORD_TYPE or token_type==dt.ID_TYPE or token_type==dt.VALUE_TYPE
         if not os.path.exists(document_path):
             raise IOError("file not found")
         if document_path.endswith(".txt"):
@@ -27,7 +27,7 @@ class Document(object):
 
     @classmethod
     def create_from_iter(cls, document_iter, token_type, vocab=None):
-        assert token_type==dt.WORD_TYPE or token_type==dt.ID_TYPE
+        assert token_type==dt.WORD_TYPE or token_type==dt.ID_TYPE or token_type==dt.VALUE_TYPE
         def doc_gen_f():
             for token in document_iter:
                 yield token
@@ -79,15 +79,17 @@ class Document(object):
         if self._token_type == dt.WORD_TYPE:
             self._iter_gen_func = dt.word2id_gen_f(self, self._vocab)
             self._token_type = dt.ID_TYPE
-        else:
+        elif self._token_type == dt.ID_TYPE:
             self._iter_gen_func = dt.id2word_gen_f(self, self._vocab)
             self._token_type = dt.WORD_TYPE
+        else:
+            raise ValueError("This type of token does not support toggle word/id")
 
     def mask_unk(self):
         assert self._vocab is not None
         iter_gen = self._iter_gen_func()
         def mask_unk_f():
-            if self.token_type == str:
+            if self.token_type == dt.WORD_TYPE:
                 unk_signature = UNK
                 unk_check_f = self._vocab.check_word_exist
             else:
