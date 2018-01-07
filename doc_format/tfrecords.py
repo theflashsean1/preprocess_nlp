@@ -1,6 +1,6 @@
 import tensorflow as tf
 from functools import partial
-from preprocess_nlp.doc_token import WORD_TYPE, ID_TYPE, VALUE_TYPE
+from preprocess_nlp.doc_token import WORD_TYPE, ID_TYPE, VALUE_INT_TYPE, VALUE_FLOAT_TYPE 
 import pdb
 
 
@@ -28,21 +28,37 @@ def _int64_feature_list(values, int_feautre_func):
     return tf.train.FeatureList(feature=[int_feautre_func(val) for val in values])
 
 
-def _feature_dict(int_feature_dict, bytes_feature_dict):
+def _float64_feature(value):
+    return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
+
+
+def _float64_features(values):
+    return tf.train.Feature(float_list=tf.train.FloatList(value=values))
+
+
+def _float_feature_list(values, float_feature_func):
+    return tf.train.FeatureList(feature=[float_feature_func(val) for val in values])
+
+
+def _feature_dict(int_feature_dict, bytes_feature_dict, float_feature_dict):
     feature_dict = {}
     for key, val in int_feature_dict.items():
         feature_dict[key] = _int64_feature(val)
     for key, val in bytes_feature_dict.items():
         feature_dict[key] = _bytes_feature(val)
+    for key, val in float_feature_dict.items():
+        feature_dict[key] = _float64_feature(val)
     return feature_dict
 
 
-def _feature_lists_dict(int_feature_dict, bytes_feature_dict):
+def _feature_lists_dict(int_feature_dict, bytes_feature_dict, float_feature_dict):
     feature_dict = {}
     for key, val in int_feature_dict.items():
         feature_dict[key] = _int64_feature_list(val, _int64_feature)
     for key, val in bytes_feature_dict.items():
         feature_dict[key] = _bytes_feature_list(val, _bytes_feature)
+    for key, val in float_feature_dict.items():
+        feature_dict[key] = _float_feature_list(val, _float64_feature)
     return feature_dict
 
 
@@ -73,11 +89,16 @@ def doc_save(doc, doc_transformer, tfrecords_save_path):
                 feature_fs.append((partial(_bytes_feature_list, byte_feature_func=_bytes_feature), 1))
             else:
                 feature_fs.append((_bytes_feature, 0))
-        elif token_type == ID_TYPE or token_type == VALUE_TYPE:
+        elif token_type == ID_TYPE or token_type == VALUE_INT_TYPE:
             if seq_len > 1:
                 feature_fs.append((partial(_int64_feature_list, int_feature_func=_int64_feature), 1))
             else:
                 feature_fs.append((_int64_feature, 0))
+        elif token_type == VALUE_FLOAT_TYPE:
+            if seq_len > 1:
+                feature_fs.append((partial(_float_feature_list, float_feature_func= _float64_feature), 1))
+            else:
+                feature_fs.append((_float64_feature, 0))
         else:
             raise ValueError("Not valid token type")
     with tf.python_io.TFRecordWriter(tfrecords_save_path) as writer:
@@ -178,32 +199,4 @@ def sca2scapair_iter_tensors(dataset_path, batch_size):
     iterator = dataset.make_initializable_iterator()
     w_i, w_j = iterator.get_next()
     return iterator.initializer, w_i, w_j
-
-
-"""
-# TODO not needed here for recovering data from .tfrecords
-def get_parse_func(src_type, tgt_type):
-    def _parse(example_proto):
-        features = tf.parse_single_example(
-            serialized=example_proto,
-            features={
-                'src': tf.FixedLenFeature([], src_type),
-                'tgt': tf.FixedLenFeature([], tgt_type)
-            }
-        )
-        return features['src'], features['tgt']
-    return _parse
-
-# Put this in tensorbridge models
-def get_parse_func2(src_type, tgt_type, batch_size):
-    def _parse(example_proto):
-        features = tf.parse_single_example(
-            serialized=example_proto,
-            features={
-                'src_seq': tf.FixedLenFeature([], src_type),   
-                'label': tf.FixedLenFeature([], tgt_type),
-                'flag_new_doc': tf.FixedLenFeature([], tf.int32)
-            }
-        )
-"""
 

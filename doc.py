@@ -12,7 +12,7 @@ class Document(object):
 
     @classmethod 
     def create_from_file(cls, document_path, token_type, vocab=None):
-        assert token_type==dt.WORD_TYPE or token_type==dt.ID_TYPE or token_type==dt.VALUE_TYPE
+        dt.assert_type_valid(token_type)
         if not os.path.exists(document_path):
             raise IOError("file not found")
         if document_path.endswith(".txt"):
@@ -27,7 +27,7 @@ class Document(object):
 
     @classmethod
     def create_from_iter(cls, document_iter, token_type, vocab=None):
-        assert token_type==dt.WORD_TYPE or token_type==dt.ID_TYPE or token_type==dt.VALUE_TYPE
+        dt.assert_type_valid(token_type)
         def doc_gen_f():
             for token in document_iter:
                 yield token

@@ -1,6 +1,6 @@
 import abc
 import numpy as np
-from preprocess_nlp.doc_token import WORD_TYPE, ID_TYPE, VALUE_TYPE
+from preprocess_nlp.doc_token import WORD_TYPE, ID_TYPE, VALUE_INT_TYPE, VALUE_FLOAT_TYPE
 import pdb
 
 
@@ -81,11 +81,12 @@ class Sca2wordTransform(DocTransformer):
 
     @property
     def token_types(self):
-        return [self._token_type, VALUE_TYPE, self._token_type, self._token_type, VALUE_TYPE, self._token_type]
+        return [self._token_type, self._val_token_type, self._token_type, self._token_type, self._val_token_type, self._token_type]
 
-    def __init__(self, each_num_example, max_num_examples, token_type):
+    def __init__(self, each_num_example, max_num_examples, token_type, val_token_type):
         self._max_num_examples = max_num_examples
         self._token_type = token_type
+        self._val_token_type = val_token_type
         self._each_num_example = each_num_example
     
     @staticmethod
@@ -130,7 +131,13 @@ class Sca2wordTransform(DocTransformer):
                 u_i, w_i, v_i = u_w_v_i
                 u_j, w_j, v_j = u_w_v_j
                 count+=1
-                yield u_i, int(float(w_i)), v_i, u_j, int(float(w_j)), v_j
+                if self._val_token_type == VALUE_INT_TYPE:
+                    yield u_i, int(float(w_i)), v_i, u_j, int(float(w_j)), v_j
+                elif self._val_token_type == VALUE_FLOAT_TYPE:
+                    yield u_i, float(w_i), v_i, u_j, float(w_j), v_j
+                else:
+                    raise ValueError("Unsupported Value token type")
+
             u_w_v_i = comparisons.pop(0)
             comparisons.append(find_next_u_w_v(doc_gen))
 
@@ -141,12 +148,12 @@ class Sca2ScapairTransformer(DocTransformer):
 
     @property
     def token_types(self):
-        return [self._token_type, self._token_type]
+        return [VALUE_INT_TYPE, VALUE_INT_TYPE]
 
-    def __init__(self, each_num_example, max_num_examples, token_type):
+    def __init__(self, each_num_example, max_num_examples):
         self._each_num_example = each_num_example
         self._max_num_examples = max_num_examples
-        self._token_type = token_type
+        # self._val_token_type = val_token_type
 
     def get_iters(self, doc):
         def find_w(doc_iter):
