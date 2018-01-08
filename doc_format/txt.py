@@ -5,12 +5,20 @@ import pdb
 
 
 def doc_gen_f(doc_path, token_type):
+    dt.assert_type_valid(token_type)
+    convert_f = lambda x: x
+    if token_type == dt.VALUE_INT_TYPE or token_type == dt.ID_TYPE:
+        convert_f = lambda x: int(float(x))
+    elif token_type == dt.VALUE_FLOAT_TYPE:
+        convert_f = lambda x: float(x)
+
     def doc_gen():
         with open(doc_path) as f:
             for line in f:
                 tokens = line.split()
                 for token in tokens:
-                    yield token
+                    yield convert_f(token)
+                # Handle the end of line if the document is language based
                 if token_type == dt.WORD_TYPE:
                     yield EOS
                 elif token_type == dt.ID_TYPE:
