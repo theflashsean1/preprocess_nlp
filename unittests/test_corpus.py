@@ -10,9 +10,21 @@ class TestDocument(unittest.TestCase):
 
     def setUp(self):
         self._doc1 = Document.create_from_file("ptb/ptb.train.txt", dt.WORD_TYPE)
+        self._doc2 = Document.create_from_file("ptb/ptb.valid.txt", dt.WORD_TYPE)
+        self._doc3 = Document.create_from_file("ptb/ptb.test.txt", dt.WORD_TYPE)
 
     def test_basic_doc_info(self):
         self.assertEqual(self._doc1.token_type, dt.WORD_TYPE)
+
+    def test_merge_doc(self):
+        merged_doc = Document.create_from_docs(self._doc1, self._doc2, self._doc3)
+        merged_doc_gen = iter(merged_doc)
+        for token in self._doc1:
+            self.assertEqual(token, next(merged_doc_gen))
+        for token in self._doc2:
+            self.assertEqual(token, next(merged_doc_gen))
+        for token in self._doc3:
+            self.assertEqual(token, next(merged_doc_gen))
 
     def test_raw_gen(self):
         identity_transformer = IdentityTransform(dt.WORD_TYPE)
@@ -35,6 +47,7 @@ class TestDocument(unittest.TestCase):
         center, context = next(w2v_iter)
         self.assertEqual(center, "banknote")
         self.assertEqual(context, "aer")
+
 
 
 if __name__ == '__main__':

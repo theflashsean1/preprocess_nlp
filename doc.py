@@ -33,6 +33,19 @@ class Document(object):
                 yield token
         return cls(doc_gen_f, token_type, vocab)
 
+    @classmethod
+    def create_from_docs(cls, *docs):
+        if len(docs) == 0:
+            return None
+        token_type = docs[0].token_type
+        def merged_iter_f():
+            for doc_ in docs:
+                assert token_type==doc_.token_type
+                for item in iter(doc_):
+                    yield item
+        return cls(merged_iter_f, token_type)  # TODO handle vocab 
+
+
     def __init__(self, doc_gen_f, token_type, vocab=None):
         self._vocab = vocab
         self._iter_gen_func = doc_gen_f
