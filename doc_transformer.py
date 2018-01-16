@@ -258,6 +258,7 @@ class DocLabelsTransform(DocTransformer):
                 next_seq, next_label = next(curr_doc_seq_iters[index]), curr_doc_labels[index]
                 eod_flag = 0
             except StopIteration:
+                # STOP iterating by min length of documents in a batch
                 eod_flag = 1
                 start_doc_id += self._batch_size
                 curr_doc_seq_iters = doc_seq_iters[start_doc_id:start_doc_id+self._batch_size]

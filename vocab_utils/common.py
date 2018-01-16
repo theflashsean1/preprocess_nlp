@@ -62,10 +62,12 @@ class VocabReader:
                     self._vocab_counts = [int(count) for count in counts]
     
     def id2word_lookup(self, id_token):
+        if id_token >= self.vocab_size:
+            return UNK
         return self._id2word_table[id_token] 
 
     def word2id_lookup(self, word_token):
-        return self._word2id_table[word_token]
+        return self._word2id_table.get(word_token, UNK_ID)
 
     def check_word_exist(self, word_token):
         return (word_token in self._word2id_table)

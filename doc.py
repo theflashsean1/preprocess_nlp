@@ -9,20 +9,17 @@ import pdb
 
 
 class Document(object):
-
-    @classmethod 
-    def create_from_file(cls, document_path, token_type, vocab=None):
+    @classmethod
+    def create_from_txt(cls, txt_path, token_type, eol_type=dtxt.YIELD_EOL, vocab=None):
         dt.assert_type_valid(token_type)
-        if not os.path.exists(document_path):
+        if not os.path.exists(txt_path):
             raise IOError("file not found")
-        if document_path.endswith(".txt"):
-            doc_gen_f = dtxt.doc_gen_f(document_path, token_type)
-        elif document_path.endswith(".tfrecords"):
-            pass
-        elif document_path.endswith(".npy"):
-            pass
+        if eol_type == dtxt.YIELD_EOL:
+            doc_gen_f = dtxt.doc_gen_f_yield_eol(txt_path, token_type)
+        elif eol_type == dtxt.IGNORE_EOL:
+            doc_gen_f = dtxt.doc_gen_f_ignore_eol(txt_path, token_type)
         else:
-            raise ValueError("Not valid document state type")
+            raise ValueError("Non existing end of line type")
         return cls(doc_gen_f, token_type, vocab)
 
     @classmethod
@@ -51,9 +48,15 @@ class Document(object):
         self._iter_gen_func = doc_gen_f
         self._token_type = token_type
         self._label_dict = {}
+        self._doc_len = None
 
     def __iter__(self):
         return self._iter_gen_func()
+
+    def __len__(self):
+        if not self._doc_len:
+            self._doc_len = sum(1 for _ in iter(self))
+        return self._doc_len
 
     def get_sequenced_iter(self, seq_len):
         doc_gen = iter(self)

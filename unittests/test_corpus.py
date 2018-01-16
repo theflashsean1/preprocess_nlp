@@ -3,18 +3,21 @@ import pdb
 from preprocess_nlp.doc import Document
 from preprocess_nlp.doc_transformer import IdentityTransform, Word2VecTransform
 import preprocess_nlp.doc_token as dt
-
-
+import preprocess_nlp.doc_format.txt as dtxt
 
 class TestDocument(unittest.TestCase):
 
     def setUp(self):
-        self._doc1 = Document.create_from_file("ptb/ptb.train.txt", dt.WORD_TYPE)
-        self._doc2 = Document.create_from_file("ptb/ptb.valid.txt", dt.WORD_TYPE)
-        self._doc3 = Document.create_from_file("ptb/ptb.test.txt", dt.WORD_TYPE)
+        self._doc_test1 = Document.create_from_txt("mock_files/short_doc.txt", dt.WORD_TYPE)
+        self._doc_test2 = Document.create_from_txt("mock_files/short_doc.txt", dt.WORD_TYPE, eol_type=dtxt.IGNORE_EOL)
+        self._doc1 = Document.create_from_txt("ptb/ptb.train.txt", dt.WORD_TYPE)
+        self._doc2 = Document.create_from_txt("ptb/ptb.valid.txt", dt.WORD_TYPE)
+        self._doc3 = Document.create_from_txt("ptb/ptb.test.txt", dt.WORD_TYPE)
 
     def test_basic_doc_info(self):
         self.assertEqual(self._doc1.token_type, dt.WORD_TYPE)
+        self.assertEqual(len(self._doc_test1), 14)
+        self.assertEqual(len(self._doc_test2), 11)
 
     def test_merge_doc(self):
         merged_doc = Document.create_from_docs(self._doc1, self._doc2, self._doc3)
