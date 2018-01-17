@@ -2,22 +2,50 @@ import nltk
 from preprocess_nlp.file_utils import common
 
 
-def notes_tokenize(data_path):
-    write_f_path = common.extend_path_basename(data_path, "preprocessed")
+def notes_tokenize_full(data_path):
+    write_f_path = common.extend_path_basename(data_path, "fully_preprocessed")
     with open(data_path) as read_f:
         with open(write_f_path, "w") as write_f:
             for line in read_f:
                 words = line.split()
                 new_words = []
-                for i, word in enumerate(words):
-                    special_eos = False
-                    if "\\n" in word and i<(len(words) - 1):
-                        if ":" in words[i+1]:
-                            word = word.replace("\\n", ".")
+                i = 0
+                while i < len(words):
+                    word = words[i]
+                    if "\\n" in word and i<(len(words) - 4):
+                        # ... if the next word is "<word>: ", this new line is
+                        # the actual end of sentence, we use . or </s> as used
+                        # later
+                        if ":" in words[i+1] or ":" in words[i+2] or ":" in words[i+3] or ":" in words[i+4]:
+                            word = word.replace("\\n", " .")
                         word = word.replace("\\n", " ")
                     new_words.append(word.lower())
+                    i+=1
                 write_f.write(" ".join(new_words) + "\n")
-
+    # STEP1 Replace all the new lines with space excpet ...
+    # If [ found, skip everything until ]
+    with common.ReadReplaceOpen(write_f_path) as f:
+        for line in f:
+            words = line.split()
+            new_words = []
+            i = 0
+            while i < len(words):
+                word = words[i]
+                if "[" in word:
+                    while i < len(words) and (not ("]" in words[i])):
+                        i+=1
+                    i+=1
+                    continue
+                if "(" in word:
+                    while i < len(words) and (not (")" in words[i])):
+                        i+=1
+                    i+=1
+                    continue
+                new_words.append(word.lower())
+                i+=1
+            f.write(" ".join(new_words) + "\n")
+    # STEP2 Tokenize all words, and replace some punctuations with words
+    # so that they could be preserved when we use nltk to remove all other punc 
     with common.ReadReplaceOpen(write_f_path) as f:
         for line in f:
             new_tokens = []
@@ -33,21 +61,59 @@ def notes_tokenize(data_path):
                     new_tokens.append(token)
             f.write(" ".join(new_tokens) + "\n")
     
+    # STEP3 Remove puncs & reverse some reserved punctuations to original form
+    # Also, remove/replace some unwanted tokens
     with common.ReadReplaceOpen(write_f_path) as f:
         for line in f:
-            new_tokens = []
             tokenizer = nltk.tokenize.RegexpTokenizer(r"\w+")
             tokens = tokenizer.tokenize(line)
-            for i, token in enumerate(tokens):
+            i = 0
+            new_tokens = []
+            while i < len(tokens):
+                token = tokens[i]
+                if i<len(tokens)-2:
+                    if token == "num" and (tokens[i+1] == "am" or tokens[i+1] == "pm"):
+                        new_tokens.append("<time>")
+                        i+=2
+                        continue
+                    elif token == "num" and tokens[i+1] == "colon" and (tokens[i+2] == "am" or tokens[i+2] == "pm"):
+                        new_tokens.append("<time>")
+                        i+=3
+                        continue
+                    elif token == "colon" and (tokens[i+1] == "am" or tokens[i+1] == "pm"):
+                        new_tokens.append("<time>")
+                        i+=2
+                        continue
+
+                if token == "clip":
+                    if i<len(tokens)-1:
+                        if tokens[i+1] == "number":
+                            i+=2
+                            continue
+                    else:
+                        i+=1
+                        continue
+                    """
+                    while tokens[i]!="</s>" or i < len(tokens):
+                        i+=1
+                    i+=1
+                    continue
+                    """
+
                 if token == "num":
-                    tokens[i] = "<num>"
+                    new_tokens.append("<num>")
                 elif token == "colon":
-                    tokens[i] = ":"
+                    new_tokens.append(":")
                 elif token == "eos":
-                    tokens[i] = "</s>"
+                    new_tokens.append("</s>")
                 elif "_______" in token:
-                    tokens[i] = ""
-            f.write(" ".join(tokens) + "\n")
+                    pass
+                else:
+                    new_tokens.append(token)
+
+                i+=1
+
+            f.write(" ".join(new_tokens) + "\n")
     return write_f_path
 
 
