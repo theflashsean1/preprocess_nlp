@@ -1,9 +1,11 @@
 UNK = "<unk>"
 SOS = "<s>"
 EOS = "</s>"
+PAD = "<pad>"
 UNK_ID = 0
 SOS_ID = 1
 EOS_ID = 2
+PAD_ID = 3
 
 class VocabCreator:
 

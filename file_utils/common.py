@@ -68,6 +68,10 @@ def aggregate_files(file_name, *file_paths):
                 f_write.write(line)
 
 
-
-
-
+def batched_items_iter(batch_size, *items):
+    batched_items = []
+    for item in items:
+        batched_items.append(item)
+        if len(batched_items) == batch_size:
+            yield tuple(batched_items)
+            batched_items = []
