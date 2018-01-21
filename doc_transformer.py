@@ -20,6 +20,9 @@ class DocTransformer(object):
     def token_types(self):
         pass
 
+    def estimate_max_size(self, doc):
+        pass
+
 
 class IdentityTransform(DocTransformer):
     iter_keys = ["token"]
@@ -35,6 +38,9 @@ class IdentityTransform(DocTransformer):
     def get_iters(self, doc):
         # doc = docs
         return iter(doc)
+
+    def estimate_max_size(self, doc):
+        return len(doc)
 
 
 class Word2VecTransform(DocTransformer):
@@ -73,6 +79,9 @@ class Word2VecTransform(DocTransformer):
                 pass
             if len(backward_context_words) > self._window_size:
                 backward_context_words.pop(0)
+
+    def estimate_max_size(self, doc):
+        return 2*self._window_size*len(doc) - 2*self._window_size
 
 
 class Sca2wordTransform(DocTransformer):
@@ -239,7 +248,7 @@ class DocLabelsTransform(DocTransformer):
         self._num_examples = num_examples
         self._token_type = token_type
 
-    def get_iters(self, *docs):
+    def get_iters(self, *docs, num_examples=None):
         for doc_ in docs:
             assert doc_.token_type == docs[0].token_type
         start_doc_id = 0
@@ -267,4 +276,7 @@ class DocLabelsTransform(DocTransformer):
             yield seq, label, eod_flag
             count += 1
 
+
+class QuestionAnswerTransform(DocTransformer):
+    iter_keys = [""]
 
