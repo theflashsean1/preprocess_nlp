@@ -61,6 +61,11 @@ def extend_path_basename(data_path, extended_signature):
     return data_path
 
 
+def extend_file_basename(basename, extended_signature):
+    filename, file_extension = os.path.splitext(basename)
+    return filename + "_" + extended_signature + file_extension
+
+
 def aggregate_files(file_name, *file_paths):
     with open(file_name, "w") as f_write:
         with AggregatedReadOpen(*file_paths) as f_read:

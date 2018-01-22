@@ -1,9 +1,15 @@
 import nltk
+import os
 from preprocess_nlp.file_utils import common
 
 
-def notes_tokenize_full(data_path):
-    write_f_path = common.extend_path_basename(data_path, "fully_preprocessed")
+def notes_tokenize_full(data_path, res_dir=None):
+    if not res_dir:
+        write_f_path = common.extend_path_basename(data_path, "fully_preprocessed")
+    else:
+        f_name = common.extend_file_basename(data_path, "fully_preprocessed")
+        write_f_path = os.path.join(os.path.dirname(data_path), f_name)
+
     with open(data_path) as read_f:
         with open(write_f_path, "w") as write_f:
             for line in read_f:
