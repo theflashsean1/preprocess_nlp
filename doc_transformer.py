@@ -44,13 +44,13 @@ class IdentityTransform(DocTransformer):
         self._token_type = [token_type]
 
     def get_iters(self, *docs):
-        self.doc_token_types_check(doc, *docs)
+        self.doc_token_types_check(*docs)
         for doc in docs:
             for token in doc:
                 yield token
 
     def estimate_max_size(self, *docs):
-        self.doc_token_types_check(doc, *docs)
+        self.doc_token_types_check(*docs)
         len_sum = 0 
         for doc in docs:
             len_sum += len(doc)
@@ -332,9 +332,9 @@ class DocLabelsPadTransform(DocTransformer):
                     next_seq, next_label = next(seq_iters[i]), labels[i]
                     yield seq, label, 0
                 except StopIteration:
-                    yield self._pad_token, label, 1  # TODO when to actually set this
-                    next_seq, next_label = P, labels[i]
-                    eod_flag[i] = 1
+                    next_seq, next_label = self._pad_token, labels[i]
+                    yield seq, label, 1  # TODO when to actually set this
+                    eod_flags[i] = 1
                     all_eod = True
                     for flag in eod_flags:
                         if flag == 0:
@@ -343,14 +343,14 @@ class DocLabelsPadTransform(DocTransformer):
                         break
 
     def get_better_iters(self, *docs):
-        sorted_docs = sorted(docs, key=(lambda doc: len(doc), reversed=True))
+        sorted_docs = sorted(docs, key=(lambda doc: len(doc)), reverse=True)
         return self.get_iters(*sorted_docs)
 
     def estimate_max_size(self, *docs):
         self.doc_token_types_check(*docs)
         len_sum = 0
         for batched_docs in batched_items_iter(self._batch_size, *docs):
-            len_sum += (max([len(doc) for doc in batched_docs]) / self.self._seq_len) * self._batch_size
+            len_sum += (max([len(doc) for doc in batched_docs]) // self._seq_len) * self._batch_size
         return len_sum
 
 

@@ -1,8 +1,8 @@
 import tensorflow as tf
+import pdb
 from functools import partial
 from preprocess_nlp.doc_token import WORD_TYPE, ID_TYPE, VALUE_INT_TYPE, VALUE_FLOAT_TYPE 
 from preprocess_nlp.file_utils.common import limit_iter
-import pdb
 
 
 def _bytes_feature(value):
@@ -111,8 +111,8 @@ def doc_save(doc_transform_state, tfrecords_save_path):
         raise ValueError("No iter method implemented on this doc transformer")
         
     with tf.python_io.TFRecordWriter(tfrecords_save_path) as writer:
-        seqs_iter = get_iters_f(*docs)
-        for seqs in limit_iter(seqs_iter, doc_transform_state.size)
+        seqs_iter = get_iters_f(doc_transform_state.docs)
+        for seqs in limit_iter(seqs_iter, doc_transform_state.size):
             context_feature_dict = {doc_transformer.iter_keys[i]:feature_fs[i][0](seq) 
                      for i, seq in  enumerate(seqs) if feature_fs[i][1]==0}
             feature_lists_dict = {doc_transformer.iter_keys[i]:feature_fs[i][0](seq) 
