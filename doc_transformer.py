@@ -1,7 +1,7 @@
 import abc
 import numpy as np
 from preprocess_nlp.doc_token import WORD_TYPE, ID_TYPE, VALUE_INT_TYPE, VALUE_FLOAT_TYPE
-from preprocess_nlp.file_utils.common import batched_items_iter
+from preprocess_nlp.file_utils.common import batched_items_iter, merged_round_iter
 from preprocess_nlp.vocab_utils.common import PAD, PAD_ID
 import pdb
 
@@ -17,19 +17,12 @@ class DocTransformer(object):
     def get_iters(self, *docs):
         pass
 
-    def get_iters_limit(self, num_examples, *docs):
-        i = 0
-        for tuple_ in self.get_iters(*docs):
-            yield tuple_
-            i += 1
-            if i>= num_examples:
-                break
-
     @property
     @abc.abstractmethod
     def token_types(self):
         pass
 
+    @abc.abstractmethod
     def estimate_max_size(self, *docs):
         pass
 
@@ -77,7 +70,7 @@ class Word2VecTransform(DocTransformer):
         self._token_type = token_type
     
     def get_iters(self, *docs):
-        for doc in docs:
+        def word2vec_gen(doc):
             doc_gen = iter(doc)
             num_example = 0
             center_word = next(doc_gen)
@@ -100,6 +93,9 @@ class Word2VecTransform(DocTransformer):
                     pass
                 if len(backward_context_words) > self._window_size:
                     backward_context_words.pop(0)
+        word2vec_iters = [word2vec_gen(doc) for doc in docs]
+        for center, context in merged_round_iter(*word2vec_iters):
+            yield center, context
 
     def estimate_max_size(self, *docs):
         len_sum = 0
@@ -315,10 +311,9 @@ class DocLabelsPadTransform(DocTransformer):
     def token_types(self):
         return [self._token_type, ID_TYPE, ID_TYPE]
 
-    def __init__(self, batch_size, seq_len, num_examples, token_type):
+    def __init__(self, batch_size, seq_len, token_type):
         self._batch_size = batch_size
         self._seq_len = seq_len
-        self._num_examples = num_examples
         self._token_type = token_type
         self._pad_token = PAD if token_type == WORD_TYPE else PAD_ID
 
@@ -346,6 +341,10 @@ class DocLabelsPadTransform(DocTransformer):
                             all_eod = False
                     if all_eod:
                         break
+
+    def get_better_iters(self, *docs):
+        sorted_docs = sorted(docs, key=(lambda doc: len(doc), reversed=True))
+        return self.get_iters(*sorted_docs)
 
     def estimate_max_size(self, *docs):
         self.doc_token_types_check(*docs)

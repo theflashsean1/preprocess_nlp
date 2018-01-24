@@ -19,7 +19,6 @@ class TestDocument(unittest.TestCase):
         self._doc3 = Document.create_from_txt("ptb/ptb.test.txt", dt.WORD_TYPE)
         self._doc3.set_label("label", 1)
 
-
     def test_basic_doc_info(self):
         self.assertEqual(self._doc1.token_type, dt.WORD_TYPE)
         self.assertEqual(len(self._doc_test1), 14)

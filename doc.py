@@ -1,4 +1,5 @@
 import os
+import collections
 from preprocess_nlp.vocab_utils.common import UNK, SOS, EOS, EOS_ID
 import numpy as np
 import collections
@@ -116,5 +117,12 @@ class Document(object):
                 else:
                     yield token
         self._iter_gen_func = mask_unk_f
+
+
+class DocumentTransformState(collections.namedtuple(
+    "DocumentTransformState",
+    ("docs", "transformer", "size")
+    )):
+    pass
 
 

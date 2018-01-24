@@ -80,3 +80,25 @@ def batched_items_iter(batch_size, *items):
         if len(batched_items) == batch_size:
             yield tuple(batched_items)
             batched_items = []
+
+
+def merged_round_iter(*iters):
+    while len(iters)!=0:
+        next_iters = []
+        for iterator in iters:
+            try:
+                res_tuple = next(iterator)
+                next_iters.append(iterator)
+                yield res_tuple
+            except StopIteration:
+                pass
+        iters = next_iters
+
+def limit_iter(iterator, max_num_examples):
+    i = 0 
+    for tuple_ in iterator:
+        yield tuple_
+        i += 1
+        if i >= max_num_examples:
+            break 
+

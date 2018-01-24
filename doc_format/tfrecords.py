@@ -1,6 +1,7 @@
 import tensorflow as tf
 from functools import partial
 from preprocess_nlp.doc_token import WORD_TYPE, ID_TYPE, VALUE_INT_TYPE, VALUE_FLOAT_TYPE 
+from preprocess_nlp.file_utils.common import limit_iter
 import pdb
 
 
@@ -81,8 +82,9 @@ def make_sequence_example(context_feature_dict, feature_list_dict):
     return ex
 
 
-def doc_save(doc, doc_transformer, tfrecords_save_path):
+def doc_save(doc_transform_state, tfrecords_save_path):
     feature_fs = []
+    doc_transformer = doc_transform_state.transformer
     for token_type, seq_len in zip(doc_transformer.token_types, doc_transformer.seq_lens):
         if token_type == WORD_TYPE:
             if seq_len > 1:
@@ -101,8 +103,16 @@ def doc_save(doc, doc_transformer, tfrecords_save_path):
                 feature_fs.append((_float64_feature, 0))
         else:
             raise ValueError("Not valid token type")
+    try:
+        get_iters_f = doc_transformer.get_better_iters
+    except AttributeError:
+        get_iters_f = doc_transformer.get_iters
+    except:
+        raise ValueError("No iter method implemented on this doc transformer")
+        
     with tf.python_io.TFRecordWriter(tfrecords_save_path) as writer:
-        for seqs in doc_transformer.get_iters(doc):
+        seqs_iter = get_iters_f(*docs)
+        for seqs in limit_iter(seqs_iter, doc_transform_state.size)
             context_feature_dict = {doc_transformer.iter_keys[i]:feature_fs[i][0](seq) 
                      for i, seq in  enumerate(seqs) if feature_fs[i][1]==0}
             feature_lists_dict = {doc_transformer.iter_keys[i]:feature_fs[i][0](seq) 
