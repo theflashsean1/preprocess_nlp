@@ -127,8 +127,17 @@ class TestDocument(unittest.TestCase):
         self.assertEqual(self._test_doc_vocab.id2word_lookup(3), "<pad>")
 
     def test_token_toggle(self):
-        pass
+        self._doc_toggle.set_vocab(self._test_doc_vocab)
+        self._doc_toggle.toggle_word_id()
+        iterator = iter(self._doc_toggle)
+        self.assertEqual(next(iterator), 6)
+        self.assertEqual(next(iterator), 5)
 
+        self._doc_toggle.toggle_word_id()
+        iterator1 = iter(self._doc_toggle)
+        iterator2 = iter(self._doc_toggle_word)
+        for _ in range(len(self._doc_toggle)):
+            self.assertEqual(next(iterator1), next(iterator2))
     
 
 if __name__ == '__main__':
