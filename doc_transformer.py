@@ -73,6 +73,7 @@ class Word2VecTransform(DocTransformer):
         def word2vec_gen(doc):
             doc_gen = iter(doc)
             num_example = 0
+            # pdb.set_trace()
             center_word = next(doc_gen)
             forward_context_words = []
             backward_context_words = []
@@ -91,6 +92,7 @@ class Word2VecTransform(DocTransformer):
                     pass
                 if len(backward_context_words) > self._window_size:
                     backward_context_words.pop(0)
+        # pdb.set_trace()
         word2vec_iters = [word2vec_gen(doc) for doc in docs]
         for center, context in merged_round_iter(*word2vec_iters):
             yield center, context
