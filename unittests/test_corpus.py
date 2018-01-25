@@ -126,7 +126,6 @@ class TestDocument(unittest.TestCase):
         self.assertEqual(self._test_doc_vocab.id2word_lookup(2), "</s>")
         self.assertEqual(self._test_doc_vocab.id2word_lookup(3), "<pad>")
 
-    """
     def test_token_toggle(self):
         self._doc_toggle.set_vocab(self._test_doc_vocab)
         self._doc_toggle.toggle_word_id()
@@ -139,9 +138,10 @@ class TestDocument(unittest.TestCase):
         iterator2 = iter(self._doc_toggle_word)
         for _ in range(len(self._doc_toggle)):
             a, b = next(iterator1), next(iterator2)
-            print(a)
-            print(b)
+            # print(a)
+            # print(b)
             self.assertEqual(a, b)
+
     """
     def test_iter(self):
         self._doc_toggle.set_vocab(self._test_doc_vocab)
@@ -149,6 +149,8 @@ class TestDocument(unittest.TestCase):
         # pdb.set_trace()
         for i, _ in enumerate(self._doc_toggle):
             print(i, _)
+        for i, _ in enumerate(self._doc_toggle):
+            print(i, _)
         self._doc_toggle.toggle_word_id()
         print("id--\n")
         # pdb.set_trace()
@@ -165,6 +167,7 @@ class TestDocument(unittest.TestCase):
         print("id--\n")
         for i, _ in enumerate(self._doc_toggle):
             print(i, _)
+    """
     
 
 if __name__ == '__main__':

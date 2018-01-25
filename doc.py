@@ -46,13 +46,17 @@ class Document(object):
 
     def __init__(self, doc_gen_f, token_type, vocab=None):
         self._vocab = vocab
-        self._iter_gen_func = doc_gen_f
         self._token_type = token_type
         self._label_dict = {}
         self._doc_len = None
+        self._generator_fs = []
+        self._iter_gen_func = doc_gen_f
 
     def __iter__(self):
-        return self._iter_gen_func()
+        gen_f = self._iter_gen_func
+        for generator_f in self._generator_fs:
+            gen_f = generator_f(gen_f)
+        return gen_f()
 
     def __len__(self):
         if not self._doc_len:
@@ -94,29 +98,33 @@ class Document(object):
     def toggle_word_id(self):
         assert self._vocab is not None
         if self._token_type == dt.WORD_TYPE:
-            self._iter_gen_func = dt.word2id_gen_f(self, self._vocab)
+            # self._iter_gen_func = dt.word2id_gen_f(self, self._vocab)
+            self._generator_fs.append(dt.word2id_gen_f(self._vocab))
             self._token_type = dt.ID_TYPE
         elif self._token_type == dt.ID_TYPE:
-            self._iter_gen_func = dt.id2word_gen_f(self, self._vocab)
+            # self._iter_gen_func = dt.id2word_gen_f(self, self._vocab)
+            self._generator_fs.append(dt.id2word_gen_f(self._vocab))
             self._token_type = dt.WORD_TYPE
         else:
             raise ValueError("This type of token does not support toggle word/id")
 
     def mask_unk(self):
         assert self._vocab is not None
-        iter_gen = self._iter_gen_func()
-        def mask_unk_f():
-            if self.token_type == dt.WORD_TYPE:
-                unk_signature = UNK
-                unk_check_f = self._vocab.check_word_exist
-            else:
-                raise NotImplementedError("Not implemented yet")
-            for token in iter_gen:
-                if not unk_check_f(token):
-                    yield unk_signature
+        def mask_unk_f(gen_f):
+            def gen():
+                iter_gen = gen_f()
+                if self.token_type == dt.WORD_TYPE:
+                    unk_signature = UNK
+                    unk_check_f = self._vocab.check_word_exist
                 else:
-                    yield token
-        self._iter_gen_func = mask_unk_f
+                    raise NotImplementedError("Not implemented yet")
+                for token in iter_gen:
+                    if not unk_check_f(token):
+                        yield unk_signature
+                    else:
+                        yield token
+            return gen
+        self._generator_fs.append(mask_unk_f)
 
 
 class DocumentTransformState(collections.namedtuple(

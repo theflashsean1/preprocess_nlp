@@ -8,20 +8,22 @@ def assert_type_valid(token_type):
     assert token_type == WORD_TYPE or token_type == ID_TYPE or token_type == VALUE_INT_TYPE or token_type == VALUE_FLOAT_TYPE
 
 
-def word2id_gen_f(doc, vocabulary):
-    doc_iter = iter(doc)
-    def word2id_gen():
-        for word_token in doc_iter:
-            id_token = vocabulary.word2id_lookup(word_token)
-            yield id_token 
+def word2id_gen_f(vocabulary):
+    def word2id_gen(gen_f):
+        def gen():
+            for word_token in gen_f():
+                id_token = vocabulary.word2id_lookup(word_token)
+                yield id_token 
+        return gen
     return word2id_gen
 
 
-def id2word_gen_f(doc, vocabulary):
-    doc_iter = iter(doc)
-    def id2word_gen():
-        for id_token in doc_iter:
-            word_token = vocabulary.id2word_lookup(int(id_token))
-            yield word_token 
+def id2word_gen_f(vocabulary):
+    def id2word_gen(gen_f):
+        def gen():
+            for id_token in gen_f():
+                word_token = vocabulary.id2word_lookup(int(id_token))
+                yield word_token 
+        return gen
     return id2word_gen
 
