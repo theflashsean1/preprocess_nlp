@@ -7,13 +7,14 @@ SOS_ID = 1
 EOS_ID = 2
 PAD_ID = 3
 
+
 class VocabCreator:
 
-    def __init__(self, vocab_size, out_vocab_f_path, out_count_f_path, 
-                                   prepend_special_tokens=[UNK, SOS, EOS]):
+    def __init__(self, max_vocab_size, out_vocab_f_path, out_count_f_path, 
+                                   prepend_special_tokens=[UNK, SOS, EOS, PAD]):
         self._opened_vocab_file = open(out_vocab_f_path, "w")
         self._vocab = {}
-        self._vocab_size = vocab_size
+        self._max_vocab_size = max_vocab_size
         if out_count_f_path:
             self._opened_count_file = open(out_count_f_path, "w") 
         else:
@@ -39,7 +40,7 @@ class VocabCreator:
 
         for word, count in sorted(self._vocab.items(), 
                                   key=lambda x: x[1], 
-                                  reverse=True)[:self._vocab_size]:
+                                  reverse=True)[:self._max_vocab_size]:
             self._opened_vocab_file.write(word + "\n")
             if self._opened_count_file is not None:
                 self._opened_count_file.write(str(count) + "\n")

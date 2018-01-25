@@ -4,6 +4,8 @@ from preprocess_nlp.doc import Document
 from preprocess_nlp.doc_transformer import IdentityTransform, Word2VecTransform, DocLabelsTransform
 import preprocess_nlp.doc_token as dt
 import preprocess_nlp.doc_format.txt as dtxt
+from preprocess_nlp.vocab_utils.common import VocabReader, VocabCreator
+
 
 class TestDocument(unittest.TestCase):
 
@@ -18,6 +20,15 @@ class TestDocument(unittest.TestCase):
         self._doc2.set_label("label", 0)
         self._doc3 = Document.create_from_txt("ptb/ptb.test.txt", dt.WORD_TYPE)
         self._doc3.set_label("label", 1)
+        if not os.path.exists("unittests/mock_files/short_doc_vocab.txt"):
+            with VocabCreator(10000, "unittests/mock_files/short_doc_vocab.txt",
+                    "unittests/mock_files/short_doc_vocab_counts.txt") as v_creator:
+                with open("unittests/mock_files/short_doc.txt") as f:
+                    for line in f:
+                        v_creator.update_vocab_from_sentence(line)
+        self._test_doc_vocab = VocabReader("unittests/mock_files/short_doc_vocab.txt",
+                                           "unittests/mock_files/short_doc_vocab_counts.txt")
+
 
     def test_basic_doc_info(self):
         self.assertEqual(self._doc1.token_type, dt.WORD_TYPE)
@@ -84,7 +95,18 @@ class TestDocument(unittest.TestCase):
         self.assertEqual(label, 0)
         self.assertEqual(eod_flag, 0)
 
+    def test_vocab_gen(self):
+        self.assertEqual(self._test_doc_vocab.vocab_size, (9+3))
+        self.assertEqual(self._test_doc_vocab.word2id_lookup("<unk>"), 0)
+        self.assertEqual(self._test_doc_vocab.word2id_lookup("<s>"), 1)
+        self.assertEqual(self._test_doc_vocab.word2id_lookup("</s>"), 2)
+        self.assertEqual(self._test_doc_vocab.word2id_lookup("<pad>"), 3)
+        self.assertEqual(self._test_doc_vocab.id2word_lookup(0), "<unk>")
+        self.assertEqual(self._test_doc_vocab.id2word_lookup(1), "<s>")
+        self.assertEqual(self._test_doc_vocab.id2word_lookup(2), "</s>")
+        self.assertEqual(self._test_doc_vocab.id2word_lookup(3), "<pad>")
 
+    
 
 if __name__ == '__main__':
     unittest.main()
