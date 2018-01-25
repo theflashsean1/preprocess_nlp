@@ -82,8 +82,6 @@ class Word2VecTransform(DocTransformer):
                 for context_word in backward_context_words + forward_context_words:
                     num_example += 1
                     yield center_word, context_word
-                    if num_example >= self._max_num_examples:
-                        return
                 backward_context_words.append(center_word)
                 center_word = forward_context_words.pop(0)
                 try:
@@ -269,10 +267,9 @@ class DocLabelsTransform(DocTransformer):
     def token_types(self):
         return [self._token_type, ID_TYPE, ID_TYPE]
 
-    def __init__(self, batch_size, seq_len, num_examples, token_type):
+    def __init__(self, batch_size, seq_len, token_type):
         self._batch_size = batch_size
         self._seq_len = seq_len
-        self._num_examples = num_examples
         self._token_type = token_type
 
     def get_iters(self, *docs):
