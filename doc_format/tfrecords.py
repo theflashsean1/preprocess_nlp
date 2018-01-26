@@ -122,25 +122,35 @@ def doc_save(doc_transform_state, tfrecords_save_path):
             writer.write(seq_ex.SerializeToString())
 
 
-def word2vec_iter_tensors(dataset_path, batch_size, vocab_reader=None):
+def word2vec_iter_tensors(dataset_path, batch_size, token_type, vocab_reader=None):
     def _parse(example_proto):
         features=tf.parse_single_example(
                     serialized=example_proto,
                     features={
-                        'center': tf.FixedLenFeature([], tf.string),
-                        'context': tf.FixedLenFeature([], tf.string)
+                        'center': tf.FixedLenFeature([], token_type),
+                        'context': tf.FixedLenFeature([], token_type)
                     }
                 )
         return features['center'], features['context'] 
     dataset = tf.data.TFRecordDataset([dataset_path])
     dataset = dataset.map(_parse)
-    if vocab_reader:
+    if vocab_reader and token_type == tf.string:
         dataset = dataset.map(
                     lambda src, tgt: (
                         vocab_reader.word2id_lookup(src),
                         vocab_reader.word2id_lookup(tgt)
                     )
                 )
+    elif vocab_reader and token_type == tf.int64:
+        dataset = dataset.map(
+                    lambda src, tgt: (
+                        vocab_reader.id2word_lookup(src),
+                        vocab_reader.id2word_lookup(tgt)
+                    )
+                )
+    else:
+        pass
+
     # dataset = dataset.batch(batch_size)
     dataset = dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
     iterator = dataset.make_initializable_iterator()
