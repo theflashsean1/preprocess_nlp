@@ -83,7 +83,7 @@ def batched_items_iter(batch_size, *items):
 
 
 def merged_round_iter(*iters):
-    while len(iters)!=0:
+    while len(iters) != 0:
         next_iters = []
         for iterator in iters:
             try:
@@ -93,6 +93,7 @@ def merged_round_iter(*iters):
             except StopIteration:
                 pass
         iters = next_iters
+
 
 def limit_iter(iterator, max_num_examples):
     i = 0 
