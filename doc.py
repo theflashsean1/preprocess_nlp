@@ -1,6 +1,6 @@
 import os
 import collections
-from preprocess_nlp.vocab_utils.common import UNK, SOS, EOS, EOS_ID
+from preprocess_nlp.vocab_utils.common import UNK, SOS, EOS, EOS_ID, PAD, PAD_ID
 import numpy as np
 import collections
 import preprocess_nlp.doc_format.txt as dtxt
@@ -71,10 +71,13 @@ class Document(object):
                 for _ in range(seq_len):
                     seq_list.append(next(doc_gen))
             except:
-                print("doc sequenced iter finished")
+                # print("doc sequenced iter finished")
                 break
                 # raise ValueError("document already empty")
             yield tuple(seq_list)
+        pad_token = PAD if self._token_type == dt.WORD_TYPE else PAD_ID
+        yield tuple(seq_list + [pad_token]*(seq_len - len(seq_list)))
+
 
     ####################
     # Client Interface #

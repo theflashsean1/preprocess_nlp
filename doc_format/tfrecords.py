@@ -25,8 +25,8 @@ def _int64_features(values):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=values))
 
 
-def _int64_feature_list(values, int_feautre_func):
-    return tf.train.FeatureList(feature=[int_feautre_func(val) for val in values])
+def _int64_feature_list(values, int_feature_func):
+    return tf.train.FeatureList(feature=[int_feature_func(val) for val in values])
 
 
 def _float64_feature(value):

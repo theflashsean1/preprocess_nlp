@@ -333,7 +333,7 @@ class DocLabelsPadTransform(DocTransformer):
                     next_seq, next_label = next(seq_iters[i]), labels[i]
                     yield seq, label, 0
                 except StopIteration:
-                    next_seq, next_label = self._pad_token, labels[i]
+                    next_seq, next_label = [self._pad_token] * self._seq_len, labels[i]
                     yield seq, label, 1  # TODO when to actually set this
                     eod_flags[i] = 1
                     all_eod = True
