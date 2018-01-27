@@ -150,9 +150,9 @@ class Sca2wordTransform(DocTransformer):
                 raise ValueError("Not even a single example")
             comparisons = [find_next_u_w_v(doc_gen) for _ in range(self._each_num_example)]
             count = 0
-            while count < self._max_num_examples:
+            while True:
                 if comparisons[0] == None:
-                    print("only found " + str(count) + " examples")
+                    print("found " + str(count) + " examples")
                     break
                 for u_w_v_j in comparisons:
                     if not u_w_v_j:
@@ -169,6 +169,12 @@ class Sca2wordTransform(DocTransformer):
 
                 u_w_v_i = comparisons.pop(0)
                 comparisons.append(find_next_u_w_v(doc_gen))
+
+    def estimate_max_size(self, *docs):
+        len_sum = 0
+        for _ in self.get_iters(*docs):
+            len_sum += 1
+        return len_sum
 
 
 class Sca2ScapairTransformer(DocTransformer):
