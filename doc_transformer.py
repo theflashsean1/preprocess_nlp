@@ -321,6 +321,8 @@ class DocLabelsPadTransform(DocTransformer):
         for batched_docs in batched_items_iter(self._batch_size, *docs):
             seq_iters = [doc.get_sequenced_iter(self._seq_len) for doc in batched_docs]
             labels = [doc.get_label("label") for doc in docs]
+            for label in labels:
+                assert label is not None
             eod_flags = [0 for _ in range(len(batched_docs))]
             i = 0
             next_seq, next_label = next(seq_iters[i]), labels[i]
