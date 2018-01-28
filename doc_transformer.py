@@ -80,7 +80,8 @@ class Word2VecTransform(DocTransformer):
             for _ in range(self._window_size):
                 forward_context_words.append(next(doc_gen))
             while len(forward_context_words) != 0:
-                for context_word in backward_context_words + forward_context_words:
+                context_words = backward_context_words + forward_context_words
+                for context_word in context_words:
                     num_example += 1
                     yield center_word, context_word
                 backward_context_words.append(center_word)
@@ -105,18 +106,26 @@ class Word2VecTransform(DocTransformer):
 
 
 class Sca2wordTransform(DocTransformer):
-    iter_keys = ["u_i_token", "w_i", "v_i_token",  "u_j_token", "w_j", "v_j_token"]
+    iter_keys = ["u_i_token", "w_i", "v_i_token",
+                 "u_j_token", "w_j", "v_j_token"]
     seq_lens = [1, 1, 1, 1, 1, 1]
 
     @property
     def token_types(self):
-        return [self._token_type, self._val_token_type, self._token_type, self._token_type, self._val_token_type, self._token_type]
+        return [self._out_token_type, self._out_val_token_type,
+                self._out_token_type,
+                self._out_token_type, self._out_val_token_type,
+                self._out_token_type]
 
-    def __init__(self, each_num_example, token_type, val_token_type):
-        self._token_type = token_type
-        self._val_token_type = val_token_type
+    def __init__(self, each_num_example, out_token_type, out_val_token_type,
+                 vocab_reader=None):
+        self._out_token_type = out_token_type
+        self._out_val_token_type = out_val_token_type
         self._each_num_example = each_num_example
-    
+        if out_token_type == ID_TYPE:
+            assert vocab_reader is not None
+        self._vocab_reader = vocab_reader
+
     @staticmethod
     def is_num(token):
         return token.lstrip('-').replace('.', '', 1).isdigit()
@@ -143,7 +152,10 @@ class Sca2wordTransform(DocTransformer):
                 except StopIteration:
                     return None
 
-        for doc in docs:
+        def sca2word_gen(doc):
+            assert doc.token_type == WORD_TYPE
+            token_wrap_f = lambda x: self._vocab_reader.word2id_lookup(x)\
+                if self._out_token_type == ID_TYPE else lambda x: x
             doc_gen = iter(doc)
             u_w_v_i = find_next_u_w_v(doc_gen)
             if not u_w_v_i:
@@ -151,7 +163,7 @@ class Sca2wordTransform(DocTransformer):
             comparisons = [find_next_u_w_v(doc_gen) for _ in range(self._each_num_example)]
             count = 0
             while True:
-                if comparisons[0] == None:
+                if comparisons[0] is None:
                     print("found " + str(count) + " examples")
                     break
                 for u_w_v_j in comparisons:
@@ -159,16 +171,21 @@ class Sca2wordTransform(DocTransformer):
                         break
                     u_i, w_i, v_i = u_w_v_i
                     u_j, w_j, v_j = u_w_v_j
-                    count+=1
-                    if self._val_token_type == VALUE_INT_TYPE:
+                    u_i, v_i = token_wrap_f(u_i), token_wrap_f(v_i)
+                    u_j, v_j = token_wrap_f(u_j), token_wrap_f(v_j)
+                    count += 1
+                    if self._out_val_token_type == VALUE_INT_TYPE:
                         yield u_i, int(float(w_i)), v_i, u_j, int(float(w_j)), v_j
-                    elif self._val_token_type == VALUE_FLOAT_TYPE:
+                    elif self._out_val_token_type == VALUE_FLOAT_TYPE:
                         yield u_i, float(w_i), v_i, u_j, float(w_j), v_j
                     else:
                         raise ValueError("Unsupported Value token type")
 
                 u_w_v_i = comparisons.pop(0)
                 comparisons.append(find_next_u_w_v(doc_gen))
+        sca2word_iters = [sca2word_gen(doc) for doc in docs]
+        for u_i, w_i, v_i, u_j, w_j, v_j in merged_round_iter(*sca2word_iters):
+            yield u_i, w_i, v_i, u_j, w_j, v_j
 
     def estimate_max_size(self, *docs):
         len_sum = 0

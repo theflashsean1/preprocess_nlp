@@ -130,9 +130,10 @@ def digit_exists(str_token):
 def non_digit_exists(str_token):
     return any((not char.isdigit()) for char in str_token)
 
+
 def is_valid_num(str_token):
     try:
-        num = int(float(str_token))
+        int(float(str_token))
         return True
     except:
         return False
@@ -194,8 +195,11 @@ def notes_tokenize_keep_sca(data_path, res_dir=None):
             for token in tokens:
                 if ":" in token:
                     new_tokens.append("<colon>")
-                elif digit_exists(token) and (not is_valid_num(token)):
-                    new_tokens.append("<invalidnum>")
+                elif digit_exists(token):
+                    if not is_valid_num(token):
+                        new_tokens.append("<invalidnum>")
+                    else:
+                        new_tokens.append(str(int(float(token))))
                 elif token == ".":
                     new_tokens.append("eos")
                 else:
@@ -241,9 +245,8 @@ def notes_tokenize_keep_sca(data_path, res_dir=None):
                     continue
                     """
 
-                if is_num:
-                    pass
-                    # new_tokens.append("<num>")
+                if token == "invalidnum":
+                    new_tokens.append("<invalidnum>")
                 elif token == "colon":
                     new_tokens.append(":")
                 elif token == "eos":
