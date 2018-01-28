@@ -170,6 +170,34 @@ def word2vec_iter(dataset_path, batch_size):
                 break
 
 
+def sca2word_iter_tensors_id(dataset_path, batch_size):
+    def _parse(example_proto):
+        features = tf.parse_single_example(
+            serialized=example_proto,
+            features={
+                'u_i_token': tf.FixedLenFeature([], tf.int64),
+                'w_i': tf.FixedLenFeature([], tf.int64),
+                'v_i_token': tf.FixedLenFeature([], tf.int64),
+                'u_j_token': tf.FixedLenFeature([], tf.int64),
+                'w_j': tf.FixedLenFeature([], tf.int64),
+                'v_j_token': tf.FixedLenFeature([], tf.int64)
+            }
+        )
+        return features['u_i_token'], features['w_i'], features['v_i_token'], \
+            features['u_j_token'], features['w_j'], features['v_j_token']
+    dataset = tf.data.TFRecordDataset([dataset_path])
+    dataset = dataset.map(_parse)
+    # dataset = dataset.shuffle(8000)
+    dataset = dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
+    iterator = dataset.make_initializable_iterator()
+    u_i, w_i, v_i, u_j, w_j, v_j = iterator.get_next()
+    return iterator.initializer, u_i, w_i, v_i, u_j, w_j, v_j
+
+
+def sca2word_iter_tensors_word(dataset_path, batch_size, vocab_reader=None):
+    pass
+
+
 def sca2word_iter_tensors(dataset_path, batch_size, vocab_reader=None):
     def _parse(example_proto):
         features=tf.parse_single_example(
