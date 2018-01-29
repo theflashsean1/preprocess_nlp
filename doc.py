@@ -19,6 +19,8 @@ class Document(object):
             doc_gen_f = dtxt.doc_gen_f_yield_eol(txt_path, token_type)
         elif eol_type == dtxt.IGNORE_EOL:
             doc_gen_f = dtxt.doc_gen_f_ignore_eol(txt_path, token_type)
+        elif eol_type == dtxt.KEEP_EOL_NL:
+            doc_gen_f = dtxt.doc_gen_f_keep_eol_nl(txt_path, token_type)
         else:
             raise ValueError("Non existing end of line type")
         return cls(doc_gen_f, token_type, vocab)

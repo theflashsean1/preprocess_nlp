@@ -102,4 +102,6 @@ def limit_iter(iterator, max_num_examples):
         i += 1
         if i >= max_num_examples:
             break 
+    if i < max_num_examples:
+        print("Only found " + str(i) + " examples when expected " + str(max_num_examples))
 

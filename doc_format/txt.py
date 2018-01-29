@@ -5,6 +5,8 @@ import pdb
 
 YIELD_EOL = "yield_eol"
 IGNORE_EOL = "ignore_eol"
+KEEP_EOL_NL = "keep_eol_nl"
+
 
 def _doc_gen_f(doc_path, token_type, eol_gen_f=None):
     def doc_gen():
@@ -27,7 +29,6 @@ def _doc_gen_f(doc_path, token_type, eol_gen_f=None):
     return doc_gen
 
 
-
 def doc_gen_f_yield_eol(doc_path, token_type):
     def eol_gen_f(line_len):
         if line_len > 0:
@@ -37,6 +38,15 @@ def doc_gen_f_yield_eol(doc_path, token_type):
                 yield EOS_ID
     gen_f = _doc_gen_f(doc_path, token_type, eol_gen_f)
     return gen_f 
+
+
+def doc_gen_f_keep_eol_nl(doc_path, token_type):
+    def eol_gen_f(line_len):
+        if line_len > 0:
+            yield "\n"
+    gen_f = _doc_gen_f(doc_path, token_type, eol_gen_f)
+    return gen_f 
+
 
 def doc_gen_f_ignore_eol(doc_path, token_type):
     gen_f = _doc_gen_f(doc_path, token_type)
