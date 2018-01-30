@@ -8,15 +8,26 @@ IGNORE_EOL = "ignore_eol"
 KEEP_EOL_NL = "keep_eol_nl"
 
 
+def doc_line_gen_f(doc_path, token_type):
+    convert_f = get_convert_f(token_type)
+    with open(doc_path) as f:
+        for line in f:
+            yield [convert_f(token) for token in line.strip().split(" ")]
+
+
+def get_convert_f(token_type):
+    convert_f = lambda x: x
+    if token_type == dt.VALUE_INT_TYPE or token_type == dt.ID_TYPE:
+        convert_f = lambda x: int(float(x))
+    elif token_type == dt.VALUE_FLOAT_TYPE:
+        convert_f = lambda x: float(x)
+    return convert_f
+
+
 def _doc_gen_f(doc_path, token_type, eol_gen_f=None):
     def doc_gen():
         dt.assert_type_valid(token_type)
-        convert_f = lambda x: x
-        if token_type == dt.VALUE_INT_TYPE or token_type == dt.ID_TYPE:
-            convert_f = lambda x: int(float(x))
-        elif token_type == dt.VALUE_FLOAT_TYPE:
-            convert_f = lambda x: float(x)
-
+        convert_f = get_convert_f(token_type)
         with open(doc_path) as f:
             for line in f:
                 tokens = line.split()

@@ -65,7 +65,7 @@ class Document(object):
             self._doc_len = sum(1 for _ in iter(self))
         return self._doc_len
 
-    def get_sequenced_iter(self, seq_len):
+    def get_fixed_len_sequenced_iter(self, seq_len):
         doc_gen = iter(self)
         while True:
             seq_list = []
@@ -79,6 +79,22 @@ class Document(object):
             yield tuple(seq_list)
         pad_token = PAD if self._token_type == dt.WORD_TYPE else PAD_ID
         yield tuple(seq_list + [pad_token]*(seq_len - len(seq_list)))
+
+    def get_stop_token_sequenced_iter(self, stop_token):
+        doc_gen = iter(self)
+        while True:
+            seq_list = []
+            try:
+                item = next(doc_gen)
+                if item == stop_token:
+                    yield seq_list
+                    seq_list = []
+                else:
+                    seq_list.append(item)
+            except StopIteration:
+                break
+        if len(seq_list) > 0:
+            yield seq_list
 
 
     ####################

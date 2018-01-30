@@ -300,7 +300,7 @@ class DocLabelsTransform(DocTransformer):
     def get_iters(self, *docs):
         self.doc_token_types_check(*docs)
         for batched_docs in batched_items_iter(self._batch_size, *docs):
-            seq_iters = [doc.get_sequenced_iter(self._seq_len) for doc in batched_docs]
+            seq_iters = [doc.get_fixed_len_sequenced_iter(self._seq_len) for doc in batched_docs]
             labels = [doc.get_label("label") for doc in docs]
             i = 0
             next_seq, next_label = next(seq_iters[i]), labels[i]
@@ -342,7 +342,7 @@ class DocLabelsPadTransform(DocTransformer):
     def get_iters(self, *docs):
         self.doc_token_types_check(*docs)
         for batched_docs in batched_items_iter(self._batch_size, *docs):
-            seq_iters = [doc.get_sequenced_iter(self._seq_len) for doc in batched_docs]
+            seq_iters = [doc.get_fixed_len_sequenced_iter(self._seq_len) for doc in batched_docs]
             labels = [doc.get_label("label") for doc in docs]
             for label in labels:
                 assert label is not None
@@ -378,6 +378,25 @@ class DocLabelsPadTransform(DocTransformer):
         return len_sum
 
 
-class QuestionAnswerTransform(DocTransformer):
-    iter_keys = [""]
+class bAbIQuestionAnswerTransform(DocTransformer):
+    iter_keys = ["question", "contexts", "answer"]
+
+    @property
+    def seq_lens(self):
+        return [self._q_len, self._c_len, self._a_len]
+
+    @property
+    def token_types(self):
+        return [self._token_type, self._token_type, self._token_type]
+
+    def __init__(self, batch_size, q_len, c_len, a_len, token_type):
+        self._batch_size = batch_size
+        self._seq_len = seq_len
+        self._token_type = token_type
+        self._pad_token = PAD if token_type == WORD_TYPE else PAD_ID
+
+    def get_iters(self, *babi_docs):
+        pass
+
+
 
