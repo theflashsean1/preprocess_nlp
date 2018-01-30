@@ -80,13 +80,15 @@ class Document(object):
         pad_token = PAD if self._token_type == dt.WORD_TYPE else PAD_ID
         yield tuple(seq_list + [pad_token]*(seq_len - len(seq_list)))
 
-    def get_stop_token_sequenced_iter(self, stop_token):
+    def get_stop_token_sequenced_iter(self, stop_token, include_stop=False):
         doc_gen = iter(self)
         while True:
             seq_list = []
             try:
                 item = next(doc_gen)
                 if item == stop_token:
+                    if include_stop:
+                        seq_list.append(item)
                     yield seq_list
                     seq_list = []
                 else:

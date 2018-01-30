@@ -1,6 +1,6 @@
 import abc
 import numpy as np
-from preprocess_nlp.doc_token import WORD_TYPE, ID_TYPE, VALUE_INT_TYPE, VALUE_FLOAT_TYPE
+import preprocess_nlp.doc_token as dt
 from preprocess_nlp.file_utils.common import batched_items_iter, merged_round_iter
 from preprocess_nlp.vocab_utils.common import PAD, PAD_ID
 import pdb
@@ -122,7 +122,7 @@ class Sca2wordTransform(DocTransformer):
         self._out_token_type = out_token_type
         self._out_val_token_type = out_val_token_type
         self._each_num_example = each_num_example
-        if out_token_type == ID_TYPE:
+        if out_token_type == dt.ID_TYPE:
             assert vocab_reader is not None
         self._vocab_reader = vocab_reader
 
@@ -136,6 +136,8 @@ class Sca2wordTransform(DocTransformer):
         return cls.is_num(w) and (not cls.is_num(u)) and (not cls.is_num(v))
 
     def get_iters(self, *docs):
+        for doc in docs:
+            assert doc.token_type == dt.WORD_TYPE
         def find_next_u_w_v(doc_iter):
             try:
                 u_w_v = [next(doc_iter), next(doc_iter), next(doc_iter)]
@@ -153,9 +155,8 @@ class Sca2wordTransform(DocTransformer):
                     return None
 
         def sca2word_gen(doc):
-            assert doc.token_type == WORD_TYPE
             token_wrap_f = lambda x: self._vocab_reader.word2id_lookup(x)\
-                if self._out_token_type == ID_TYPE else lambda x: x
+                if self._out_token_type == dt.ID_TYPE else lambda x: x
             doc_gen = iter(doc)
             u_w_v_i = find_next_u_w_v(doc_gen)
             if not u_w_v_i:
@@ -174,9 +175,9 @@ class Sca2wordTransform(DocTransformer):
                     u_i, v_i = token_wrap_f(u_i), token_wrap_f(v_i)
                     u_j, v_j = token_wrap_f(u_j), token_wrap_f(v_j)
                     count += 1
-                    if self._out_val_token_type == VALUE_INT_TYPE:
+                    if self._out_val_token_type == dt.VALUE_INT_TYPE:
                         yield u_i, int(float(w_i)), v_i, u_j, int(float(w_j)), v_j
-                    elif self._out_val_token_type == VALUE_FLOAT_TYPE:
+                    elif self._out_val_token_type == dt.VALUE_FLOAT_TYPE:
                         yield u_i, float(w_i), v_i, u_j, float(w_j), v_j
                     else:
                         raise ValueError("Unsupported Value token type")
@@ -200,7 +201,7 @@ class Sca2ScapairTransformer(DocTransformer):
 
     @property
     def token_types(self):
-        return [VALUE_INT_TYPE, VALUE_INT_TYPE]
+        return [dt.VALUE_INT_TYPE, dt.VALUE_INT_TYPE]
 
     def __init__(self, each_num_example, max_num_examples):
         self._each_num_example = each_num_example
@@ -290,7 +291,7 @@ class DocLabelsTransform(DocTransformer):
 
     @property
     def token_types(self):
-        return [self._token_type, ID_TYPE, ID_TYPE]
+        return [self._token_type, dt.ID_TYPE, dt.ID_TYPE]
 
     def __init__(self, batch_size, seq_len, token_type):
         self._batch_size = batch_size
@@ -331,13 +332,13 @@ class DocLabelsPadTransform(DocTransformer):
 
     @property
     def token_types(self):
-        return [self._token_type, ID_TYPE, ID_TYPE]
+        return [self._token_type, dt.ID_TYPE, dt.ID_TYPE]
 
     def __init__(self, batch_size, seq_len, token_type):
         self._batch_size = batch_size
         self._seq_len = seq_len
         self._token_type = token_type
-        self._pad_token = PAD if token_type == WORD_TYPE else PAD_ID
+        self._pad_token = PAD if token_type == dt.WORD_TYPE else PAD_ID
 
     def get_iters(self, *docs):
         self.doc_token_types_check(*docs)
@@ -389,14 +390,62 @@ class bAbIQuestionAnswerTransform(DocTransformer):
     def token_types(self):
         return [self._token_type, self._token_type, self._token_type]
 
-    def __init__(self, batch_size, q_len, c_len, a_len, token_type):
+    def __init__(self, batch_size, q_len, c_len, a_len, token_type, nl_flag, vocab_reader=None):
         self._batch_size = batch_size
-        self._seq_len = seq_len
         self._token_type = token_type
-        self._pad_token = PAD if token_type == WORD_TYPE else PAD_ID
+        self._nl_flag = nl_flag
+        self._q_len = q_len
+        self._c_len = c_len
+        self._a_len = a_len
+        self._pad_token = PAD if token_type == dt.WORD_TYPE else PAD_ID
+        if token_type == dt.ID_TYPE:
+            assert vocab_reader is not None
+        self._vocab_reader = vocab_reader
+        self._np_token_type = np.int64 if token_type == dt.ID_TYPE else np.str
 
     def get_iters(self, *babi_docs):
-        pass
+        for doc in babi_docs:
+            assert doc.token_type == dt.WORD_TYPE
+
+        token_wrap_f = lambda x: self._vocab_reader.word2id_lookup(x) \
+            if self._token_type == dt.ID_TYPE else lambda x: x
+        for babi_doc in babi_docs:
+            context_seqs = np.empty(shape=[0, self._c_len], dtype=self._np_token_type)
+            for line_tokens in babi_doc.get_stop_token_sequenced_iter(self._nl_flag):
+                seq = np.array([], dtype=self._np_token_type)
+                for i in range(1, len(line_tokens)):
+                    if "\t" not in line_tokens[i]:
+                        seq = np.append(seq, token_wrap_f(line_tokens[i]))
+                        continue
+
+                    a_s_tokens = "".join(line_tokens[i:])
+                    res = a_s_tokens.split("\t")
+                    if len(res) == 2:
+                        ans_str, _ = res
+                    elif len(res) == 3:
+                        q_str, ans_str, _ = res
+                        for q_token in q_str.split():
+                            seq = np.append(seq, token_wrap_f(q_token))
+                    else:
+                        raise ValueError("Unexpected len split by tab")
+                    ans = np.array([], dtype=self._np_token_type)
+                    for ans_token in ans_str.split():
+                        ans = np.append(ans, token_wrap_f(ans_token))
+                    ans = resize_np_seq(ans, self._a_len, self._pad_token)
+                    que = resize_np_seq(seq, self._q_len, self._pad_token)
+                    yield que, context_seqs, ans
+                    context_seqs = np.array([], dtype=self._np_token_type)
+                    break
+                seq = resize_np_seq(seq, self._c_len, self._pad_token)
+                context_seqs = np.append(context_seqs, seq, axis=0)
+
+
+def resize_np_seq(seq, max_len, pad_token):
+    if len(seq) < max_len:
+        seq = np.pad(seq, (0, max_len-len(seq)), mode="constant", constant_values=pad_token)
+    elif len(seq) > max_len:
+        seq = seq[:max_len]
+    return seq
 
 
 

@@ -3,6 +3,7 @@ from preprocess_nlp.vocab_utils.common import EOS, EOS_ID
 import preprocess_nlp.doc_token as dt
 import pdb
 
+
 YIELD_EOL = "yield_eol"
 IGNORE_EOL = "ignore_eol"
 KEEP_EOL_NL = "keep_eol_nl"
@@ -30,7 +31,7 @@ def _doc_gen_f(doc_path, token_type, eol_gen_f=None):
         convert_f = get_convert_f(token_type)
         with open(doc_path) as f:
             for line in f:
-                tokens = line.split()
+                tokens = line.split(" ")
                 for token in tokens:
                     yield convert_f(token)
                 # Handle the end of line if the document is language based
