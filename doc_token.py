@@ -2,10 +2,14 @@ WORD_TYPE = "word_type"  # str
 ID_TYPE = "id_type"      # int
 VALUE_INT_TYPE = "value_int_type"
 VALUE_FLOAT_TYPE = "value_float_type"
+SEQ_WORDS = "seq_words"
+SEQ_IDS = "seq_ids"
 
 
 def assert_type_valid(token_type):
-    assert token_type == WORD_TYPE or token_type == ID_TYPE or token_type == VALUE_INT_TYPE or token_type == VALUE_FLOAT_TYPE
+    assert token_type == WORD_TYPE or token_type == ID_TYPE \
+        or token_type == VALUE_INT_TYPE or token_type == VALUE_FLOAT_TYPE \
+        or token_type == SEQ_IDS or token_type == SEQ_WORDS
 
 
 def word2id_gen_f(vocabulary):

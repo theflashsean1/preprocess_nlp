@@ -379,23 +379,24 @@ class DocLabelsPadTransform(DocTransformer):
         return len_sum
 
 
-class bAbIQuestionAnswerTransform(DocTransformer):
+class bAbITransform(DocTransformer):
     iter_keys = ["question", "contexts", "answer"]
 
     @property
     def seq_lens(self):
-        return [self._q_len, self._c_len, self._a_len]
+        return [self._q_len, self._c_dim, self._a_len]
 
     @property
     def token_types(self):
-        return [self._token_type, self._token_type, self._token_type]
+        return [self._token_type, self._seq_type, self._token_type]
 
-    def __init__(self, batch_size, q_len, c_len, a_len, token_type, nl_flag, vocab_reader=None):
+    def __init__(self, batch_size, q_len, c_dim, a_len, token_type, nl_flag, vocab_reader=None):
         self._batch_size = batch_size
         self._token_type = token_type
+        self._seq_type = dt.SEQ_IDS if token_type == dt.ID_TYPE else dt.SEQ_WORDS
         self._nl_flag = nl_flag
         self._q_len = q_len
-        self._c_len = c_len
+        self._c_dim = c_dim
         self._a_len = a_len
         self._pad_token = PAD if token_type == dt.WORD_TYPE else PAD_ID
         if token_type == dt.ID_TYPE:
@@ -410,7 +411,9 @@ class bAbIQuestionAnswerTransform(DocTransformer):
         token_wrap_f = lambda x: self._vocab_reader.word2id_lookup(x) \
             if self._token_type == dt.ID_TYPE else lambda x: x
         for babi_doc in babi_docs:
-            context_seqs = np.empty(shape=[0, self._c_len], dtype=self._np_token_type)
+            context_seqs = np.empty(shape=[self._c_dim[0], self._c_dim[1]],
+                                    dtype=self._np_token_type)
+            c_index = 0
             for line_tokens in babi_doc.get_stop_token_sequenced_iter(self._nl_flag):
                 seq = np.array([], dtype=self._np_token_type)
                 for i in range(1, len(line_tokens)):
@@ -434,18 +437,23 @@ class bAbIQuestionAnswerTransform(DocTransformer):
                     ans = resize_np_seq(ans, self._a_len, self._pad_token)
                     que = resize_np_seq(seq, self._q_len, self._pad_token)
                     yield que, context_seqs, ans
-                    context_seqs = np.array([], dtype=self._np_token_type)
+                    context_seqs = np.empty(
+                        shape=[self._c_dim[0], self._c_dim[1]],
+                        dtype=self._np_token_type)
+                    c_index = 0
                     break
-                seq = resize_np_seq(seq, self._c_len, self._pad_token)
-                context_seqs = np.append(context_seqs, seq, axis=0)
+                seq = resize_np_seq(seq, self._c_dim[1], self._pad_token)
+                try:
+                    context_seqs[c_index] = seq
+                except:
+                    raise ValueError("Error in iteration")
+                c_index += 1
 
 
 def resize_np_seq(seq, max_len, pad_token):
     if len(seq) < max_len:
-        seq = np.pad(seq, (0, max_len-len(seq)), mode="constant", constant_values=pad_token)
+        seq = np.pad(seq, (0, max_len-len(seq)),
+                     mode="constant", constant_values=pad_token)
     elif len(seq) > max_len:
         seq = seq[:max_len]
     return seq
-
-
-
