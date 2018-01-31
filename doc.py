@@ -82,8 +82,8 @@ class Document(object):
 
     def get_stop_token_sequenced_iter(self, stop_token, include_stop=False):
         doc_gen = iter(self)
+        seq_list = []
         while True:
-            seq_list = []
             try:
                 item = next(doc_gen)
                 if item == stop_token:

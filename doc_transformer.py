@@ -402,27 +402,89 @@ class bAbITransform(DocTransformer):
         if token_type == dt.ID_TYPE:
             assert vocab_reader is not None
         self._vocab_reader = vocab_reader
-        self._np_token_type = np.int64 if token_type == dt.ID_TYPE else np.str
 
     def get_iters(self, *babi_docs):
         for doc in babi_docs:
             assert doc.token_type == dt.WORD_TYPE
 
-        token_wrap_f = lambda x: self._vocab_reader.word2id_lookup(x) \
-            if self._token_type == dt.ID_TYPE else lambda x: x
+        if self._token_type == dt.ID_TYPE:
+            token_wrap_f = lambda x: self._vocab_reader.word2id_lookup(x)
+        else:
+            token_wrap_f = lambda x: x
+
+        if self._token_type == dt.ID_TYPE:
+            context_type = np.int64
+        else:
+            context_type = object
+
         for babi_doc in babi_docs:
-            context_seqs = np.empty(shape=[self._c_dim[0], self._c_dim[1]],
-                                    dtype=self._np_token_type)
+            context_seqs = []
             c_index = 0
             for line_tokens in babi_doc.get_stop_token_sequenced_iter(self._nl_flag):
-                seq = np.array([], dtype=self._np_token_type)
+                seq = []
+                yielded = False
+                for i in range(1, len(line_tokens)):
+                    if "\t" not in line_tokens[i]:
+                        seq.append(token_wrap_f(line_tokens[i]))
+                        continue
+
+                    a_s_tokens = "".join(line_tokens[i:])
+                    res = a_s_tokens.strip().split("\t")
+                    if len(res) == 2:
+                        ans_str, _ = res
+                    elif len(res) == 3:
+                        q_str, ans_str, _ = res
+                        for q_token in q_str.split():
+                            seq.append(token_wrap_f(q_token))
+                    else:
+                        raise ValueError("Unexpected len split by tab")
+                    ans = []
+                    for ans_token in ans_str.split():
+                        ans.append(token_wrap_f(ans_token))
+                    ans = resize_seq(ans, self._a_len, self._pad_token)
+                    que = resize_seq(seq, self._q_len, self._pad_token)
+                    yield que, context_seqs, ans
+                    context_seqs = []
+                    c_index = 0
+                    yielded = True
+                    break
+                if yielded:
+                    continue
+                seq = resize_seq(seq, self._c_dim[1], self._pad_token)
+                try:
+                    context_seqs.append(seq)
+                except:
+                    raise ValueError("Error in iteration")
+                c_index += 1
+    """
+    def get_iters(self, *babi_docs):
+        for doc in babi_docs:
+            assert doc.token_type == dt.WORD_TYPE
+
+        if self._token_type == dt.ID_TYPE:
+            token_wrap_f = lambda x: self._vocab_reader.word2id_lookup(x)
+        else:
+            token_wrap_f = lambda x: x
+
+        if self._token_type == dt.ID_TYPE:
+            context_type = np.int64
+        else:
+            context_type = object
+
+        for babi_doc in babi_docs:
+            context_seqs = np.empty(shape=[self._c_dim[0], self._c_dim[1]],
+                                    dtype=context_type)
+            c_index = 0
+            for line_tokens in babi_doc.get_stop_token_sequenced_iter(self._nl_flag):
+                seq = np.array([], dtype=context_type)
                 for i in range(1, len(line_tokens)):
                     if "\t" not in line_tokens[i]:
                         seq = np.append(seq, token_wrap_f(line_tokens[i]))
                         continue
 
+
                     a_s_tokens = "".join(line_tokens[i:])
-                    res = a_s_tokens.split("\t")
+                    res = a_s_tokens.strip().split("\t")
                     if len(res) == 2:
                         ans_str, _ = res
                     elif len(res) == 3:
@@ -431,15 +493,16 @@ class bAbITransform(DocTransformer):
                             seq = np.append(seq, token_wrap_f(q_token))
                     else:
                         raise ValueError("Unexpected len split by tab")
-                    ans = np.array([], dtype=self._np_token_type)
+                    ans = np.array([], dtype=context_type)
                     for ans_token in ans_str.split():
                         ans = np.append(ans, token_wrap_f(ans_token))
+                    pdb.set_trace()
                     ans = resize_np_seq(ans, self._a_len, self._pad_token)
                     que = resize_np_seq(seq, self._q_len, self._pad_token)
                     yield que, context_seqs, ans
                     context_seqs = np.empty(
                         shape=[self._c_dim[0], self._c_dim[1]],
-                        dtype=self._np_token_type)
+                        dtype=context_type)
                     c_index = 0
                     break
                 seq = resize_np_seq(seq, self._c_dim[1], self._pad_token)
@@ -448,12 +511,21 @@ class bAbITransform(DocTransformer):
                 except:
                     raise ValueError("Error in iteration")
                 c_index += 1
+    """
+
+
+def resize_seq(seq, max_len, pad_token):
+    if len(seq) < max_len:
+        seq = seq + (max_len - len(seq))*[pad_token]
+    elif len(seq) > max_len:
+        seq = seq[:max_len]
+    return seq
 
 
 def resize_np_seq(seq, max_len, pad_token):
     if len(seq) < max_len:
         seq = np.pad(seq, (0, max_len-len(seq)),
-                     mode="constant", constant_values=pad_token)
+                     mode="constant", constant_values=(pad_token, pad_token))
     elif len(seq) > max_len:
         seq = seq[:max_len]
     return seq

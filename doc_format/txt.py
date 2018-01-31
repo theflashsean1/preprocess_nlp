@@ -31,7 +31,7 @@ def _doc_gen_f(doc_path, token_type, eol_gen_f=None):
         convert_f = get_convert_f(token_type)
         with open(doc_path) as f:
             for line in f:
-                tokens = line.split(" ")
+                tokens = line.strip().split(" ")
                 for token in tokens:
                     yield convert_f(token)
                 # Handle the end of line if the document is language based
