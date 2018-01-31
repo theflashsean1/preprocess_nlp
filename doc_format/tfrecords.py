@@ -2,6 +2,7 @@ import tensorflow as tf
 import pdb
 from functools import partial
 from preprocess_nlp.doc_token import WORD_TYPE, ID_TYPE, VALUE_INT_TYPE, VALUE_FLOAT_TYPE 
+import preprocess_nlp.doc_token as dt
 from preprocess_nlp.file_utils.common import limit_iter
 
 
@@ -86,21 +87,25 @@ def doc_save(doc_transform_state, tfrecords_save_path):
     feature_fs = []
     doc_transformer = doc_transform_state.transformer
     for token_type, seq_len in zip(doc_transformer.token_types, doc_transformer.seq_lens):
-        if token_type == WORD_TYPE:
+        if token_type == dt.WORD_TYPE:
             if seq_len > 1:
                 feature_fs.append((partial(_bytes_feature_list, byte_feature_func=_bytes_feature), 1))
             else:
                 feature_fs.append((_bytes_feature, 0))
-        elif token_type == ID_TYPE or token_type == VALUE_INT_TYPE:
+        elif token_type == dt.ID_TYPE or token_type == dt.VALUE_INT_TYPE:
             if seq_len > 1:
                 feature_fs.append((partial(_int64_feature_list, int_feature_func=_int64_feature), 1))
             else:
                 feature_fs.append((_int64_feature, 0))
-        elif token_type == VALUE_FLOAT_TYPE:
+        elif token_type == dt.VALUE_FLOAT_TYPE:
             if seq_len > 1:
                 feature_fs.append((partial(_float_feature_list, float_feature_func= _float64_feature), 1))
             else:
                 feature_fs.append((_float64_feature, 0))
+        elif token_type == dt.SEQ_WORDS:
+            feature_fs.append((partial(_bytes_feature_list, byte_feature_func=_bytes_features), 1))
+        elif token_type == dt.SEQ_IDS:
+            feature_fs.append((partial(_int64_feature_list, int_feature_func=_int64_features), 1))
         else:
             raise ValueError("Not valid token type")
     try:
