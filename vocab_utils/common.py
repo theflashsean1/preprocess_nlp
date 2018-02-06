@@ -1,3 +1,4 @@
+import numpy as np
 UNK = "<unk>"
 SOS = "<s>"
 EOS = "</s>"
@@ -86,3 +87,22 @@ class VocabReader:
     def vocab_counts_list(self):
         return self._vocab_counts
 
+
+class EmbedReader(VocabReader):
+    def __init__(self, vocab_f_path, embed_f_path, count_f_path=None):
+        super(EmbedReader, self).__init__(vocab_f_path, count_f_path)
+        self._id2embed_table = np.load(embed_f_path)
+        assert self._id2embed_table.shape[0] == self.vocab_size
+
+    def id2embed_lookup(self, id_token):
+        if id_token >= self.vocab_size:
+            return self._id2embed_table[UNK]
+        return self._id2embed_table[id_token] 
+
+    def word2embed_lookup(self, word_token):
+        id_token = self._word2id_table.get(word_token, UNK_ID)
+        return self.id2embed_lookup[id_token] 
+
+    @property
+    def embed_size(self):
+        return self._id2embed_table.shape[1]

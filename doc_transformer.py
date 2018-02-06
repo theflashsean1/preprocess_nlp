@@ -1,25 +1,23 @@
 import abc
 import numpy as np
 import preprocess_nlp.doc_token as dt
-from preprocess_nlp.file_utils.common import batched_items_iter, merged_round_iter
-from preprocess_nlp.vocab_utils.common import PAD, PAD_ID
+# from preprocess_nlp.file_utils.common import batched_items_iter, merged_round_iter
+import preprocess_nlp.file_utils.common as fc
+import preprocess_nlp.vocab_utils as vu
 import pdb
 
 
 class DocTransformer(object):
-    seq_lens = []
-    iter_keys = []
-
     def __len__(self):
-        return len(self.seq_lens)
-
-    @abc.abstractmethod
-    def get_iters(self, *docs):
-        pass
+        return len(self.seq_stats)
 
     @property
     @abc.abstractmethod
-    def token_types(self):
+    def seq_stats(self):
+        pass
+
+    @abc.abstractmethod
+    def get_iters(self, *docs):
         pass
 
     @abc.abstractmethod
@@ -33,15 +31,15 @@ class DocTransformer(object):
 
 
 class IdentityTransform(DocTransformer):
-    iter_keys = ["token"]
-    seq_lens = [1]
-
     @property
-    def token_types(self):
-        return [self._token_type]
+    def seq_stats(self):
+        if self._seq_stats is None:
+            self._seq_stats = [dt.SeqStat("token", self._token_type, 1)]
+        return self._seq_stats
 
     def __init__(self, token_type):
-        self._token_type = [token_type]
+        self._seq_stats = None
+        self._token_type = token_type
 
     def get_iters(self, *docs):
         self.doc_token_types_check(*docs)
@@ -58,16 +56,19 @@ class IdentityTransform(DocTransformer):
 
 
 class Word2VecTransform(DocTransformer):
-    iter_keys = ["center", "context"]
-    seq_lens = [1, 1]
-
     @property
-    def token_types(self):
-        return [self._token_type, self._token_type]
+    def seq_stats(self):
+        if not self._seq_stats:
+            self._seq_stats = [
+                dt.SeqStat("center", self._token_type, 1),
+                dt.SeqStat("context", self._token_type, 1)
+            ]
+        return self._seq_stats
 
     def __init__(self, window_size, token_type):
-        self._window_size = window_size
         self._token_type = token_type
+        self._window_size = window_size
+        self._seq_stats = None
     
     def get_iters(self, *docs):
         def word2vec_gen(doc):
@@ -338,7 +339,7 @@ class DocLabelsPadTransform(DocTransformer):
         self._batch_size = batch_size
         self._seq_len = seq_len
         self._token_type = token_type
-        self._pad_token = PAD if token_type == dt.WORD_TYPE else PAD_ID
+        self._pad_token = vu.PAD if token_type == dt.WORD_TYPE else vu.PAD_ID
 
     def get_iters(self, *docs):
         self.doc_token_types_check(*docs)
@@ -380,27 +381,61 @@ class DocLabelsPadTransform(DocTransformer):
 
 
 class bAbITransform(DocTransformer):
-    iter_keys = ["question", "contexts", "answer"]
-
     @property
-    def seq_lens(self):
-        return [self._q_len, self._c_dim, self._a_len]
+    def seq_stats(self):
+        if self._seq_stats is None:
+            context_stat = dt.SeqStat(
+                "context", self._out_token_type, self._c_max_len)
+            self._seq_stats = (
+                dt.SeqStat("question", self._out_token_type, self._q_max_len),
+                dt.SeqStat("contexts", dt.SEQ_TYPE, self._c_max_size, context_stat),
+                dt.SeqStat("answer", self._out_token_type, self._a_max_len),
+                dt.SeqStat("q_len", dt.VALUE_INT_TYPE, 1),
+                dt.SeqStat("c_size", dt.VALUE_INT_TYPE, 1),
+                dt.SeqStat("a_len", dt.VALUE_INT_TYPE, 1),
+            )
 
+    def __init__(self):
+        pass
+
+
+class bAbIEncodeEmbedsTransform(DocTransformer):
+    """
+    Require that input doc has token format dt.WORD_TYPE
+    output token type can be configured by token_type
+    """
     @property
-    def token_types(self):
-        return [self._token_type, self._seq_type, self._token_type]
+    def seq_stats(self):
+        if self._seq_stats is None: 
+            embed_stat = dt.SeqStat(
+                "embed",dt.VALUE_FLOAT_TYPE, self._embed_reader.embed_size)
+            self._seq_stats = (
+                dt.SeqStat("question", dt.SEQ_TYPE, self._q_max_len, embed_stat),
+                dt.SeqStat("contexts", dt.SEQ_TYPE, self._c_max_size, embed_stat),
+                dt.SeqStat("answer", dt.SEQ_TYPE, self._a_max_len, embed_stat),
+                dt.SeqStat("q_len", dt.VALUE_INT_TYPE, 1),
+                dt.SeqStat("c_size", dt.VALUE_INT_TYPE, 1),
+                dt.SeqStat("a_len", dt.VALUE_INT_TYPE, 1),
+            )
+        return self._seq_stats
 
-    def __init__(self, batch_size, q_len, c_dim, a_len, token_type, nl_flag, vocab_reader=None):
+
+    def __init__(self, batch_size, q_max_len, c_max_size, a_max_len,
+                 out_token_type, nl_flag, embed_reader, encode_func):
+        self._seq_stats = None
         self._batch_size = batch_size
-        self._token_type = token_type
-        self._seq_type = dt.SEQ_IDS if token_type == dt.ID_TYPE else dt.SEQ_WORDS
-        self._nl_flag = nl_flag
-        self._q_len = q_len
-        self._c_dim = c_dim
-        self._a_len = a_len
-        self._pad_token = PAD if token_type == dt.WORD_TYPE else PAD_ID
-        if token_type == dt.ID_TYPE:
+        self._out_token_type = out_token_type
+        if out_token_type == dt.ID_TYPE:
             assert vocab_reader is not None
+            self._seq_type = dt.SEQ_EMBEDS
+            self._pad_token = vu.PAD_ID
+        else:
+            self._seq_type = dt.SEQ_EMBEDS
+            self._pad_token = vu.PAD
+        self._nl_flag = nl_flag
+        self._q_max_len = q_max_len
+        self._c_max_size = c_max_size
+        self._a_max_len = a_max_len
         self._vocab_reader = vocab_reader
 
     def get_iters(self, *babi_docs):
@@ -456,6 +491,12 @@ class bAbITransform(DocTransformer):
                 except:
                     raise ValueError("Error in iteration")
                 c_index += 1
+
+    def _id_iters(self, *babi_docs):
+        token_wrap_f = lambda x: self._vocab_reader.word2id_lookup(x)
+
+    def _word_iters(self, *babi_docs):
+        pass
     """
     def get_iters(self, *babi_docs):
         for doc in babi_docs:
