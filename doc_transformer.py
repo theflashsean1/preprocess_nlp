@@ -388,42 +388,116 @@ class bAbITransform(DocTransformer):
                 "context", self._out_token_type, self._c_max_len)
             self._seq_stats = (
                 dt.SeqStat("question", self._out_token_type, self._q_max_len),
-                dt.SeqStat("contexts", dt.SEQ_TYPE, self._c_max_size, context_stat),
+                dt.SeqStat("contexts", dt.SEQ_TYPE, self._cs_max_size, context_stat),
                 dt.SeqStat("answer", self._out_token_type, self._a_max_len),
                 dt.SeqStat("q_len", dt.VALUE_INT_TYPE, 1),
                 dt.SeqStat("c_size", dt.VALUE_INT_TYPE, 1),
                 dt.SeqStat("a_len", dt.VALUE_INT_TYPE, 1),
+                dt.SeqStat("c_lens", dt.VALUE_INT_TYPE, self._c_max_size)
             )
+        return self._seq_stats
 
-    def __init__(self):
-        pass
+    def __init__(self, q_max_len, cs_max_size, c_max_len, a_max_len,
+                 out_token_type, nl_flag, vocab_reader=None):
+        self._out_token_type = out_token_type
+        if out_token_type == dt.ID_TYPE:
+            assert vocab_reader is not None
+            self._seq_type = dt.SEQ_EMBEDS
+            self._pad_token = vu.PAD_ID
+        else:
+            self._seq_type = dt.SEQ_EMBEDS
+            self._pad_token = vu.PAD
+        self._nl_flag = nl_flag
+        self._q_max_len = q_max_len
+        self._c_max_len = c_max_len
+        self._cs_max_size = cs_max_size
+        self._a_max_len = a_max_len
+        self._vocab_reader = vocab_reader
+
+    def get_iters(self, *babi_docs):
+        for doc in babi_docs:
+            assert doc.token_type == dt.WORD_TYPE
+        if self._out_token_type == dt.ID_TYPE:
+            dtype = np.int64
+            token_wrap_f = lambda x: self._vocab_reader.word2id_lookup(x)
+            pad_token = vu.PAD_ID
+        else:
+            dtype = object
+            token_wrap_f = lambda x: x
+            pad_token = vu.PAD
+        max_len = max(self._q_max_len, self._c_max_len)
+        for babi_doc in babi_docs:
+            context_seqs = np.full((self._cs_max_size, self._c_max_len),
+                                   pad_token, dtype=dtype)
+            c_index = 0
+            for line_tokens in babi_doc.get_stop_token_sequenced_iter(self._nl_flag):
+                seq_len, seq = 0, np.full(max_len, pad_token, dtype=dtype)
+                seq_lens = np.full(self._cs_max_size, 0, dtype=np.int64)
+                line_tokens = line_tokens[1:]
+                yielded = False
+                for i in range(len(line_tokens)):
+                    if "\t" not in line_tokens[i]:
+                        if i < max_len:
+                            seq[i] = token_wrap_f(line_tokens[i])
+                            seq_len += 1
+                        continue
+                    a_s_tokens = "".join(line_tokens[i:])
+                    res = a_s_tokens.strip().split("\t")
+                    if len(res) == 2:
+                        ans_str, _ = res
+                    elif len(res) == 3:
+                        q_r_str, ans_str, _ = res
+                        q_r_tokens = q_r_str.split()
+                        for j in range(min(len(q_r_tokens), self._q_max_len-i)):
+                            seq[i+j] = token_wrap_f(q_r_tokens[j])
+                            seq_len += 1
+                    else:
+                        raise ValueError("Unexpected len split by tab")
+                    ans = np.full(self._a_max_len, pad_token, dtype=dtype)
+                    a_len, ans_tokens = 0, ans_str.split()
+                    for j in range(min(len(ans_tokens), self._a_max_len)):
+                        ans[j] = token_wrap_f(ans_tokens[j])
+                        a_len += 1
+                    yield seq, context_seqs, ans, seq_len, c_index+1, a_len
+                    context_seqs = np.full(
+                        (self._cs_max_size, self._c_max_len),
+                        pad_token, dtype=dtype)
+                    c_index = 0
+                    yielded = True
+                    break
+                if yielded:
+                    continue
+                if c_index < self._cs_max_size:
+                    context_seqs[c_index, :] = seq[:self._c_max_len]
+                    seq_lens[c_index] = seq_len
+                    c_index += 1
 
 
 class bAbIEncodeEmbedsTransform(DocTransformer):
     """
     Require that input doc has token format dt.WORD_TYPE
-    output token type can be configured by token_type
+    - because tab \t is string only, no associated ID in vocab
+    output token type can be configured by token_type 
     """
     @property
     def seq_stats(self):
-        if self._seq_stats is None: 
+        if self._seq_stats is None:
             embed_stat = dt.SeqStat(
-                "embed",dt.VALUE_FLOAT_TYPE, self._embed_reader.embed_size)
+                "embed", dt.VALUE_FLOAT_TYPE, self._embed_reader.embed_size)
             self._seq_stats = (
                 dt.SeqStat("question", dt.SEQ_TYPE, self._q_max_len, embed_stat),
                 dt.SeqStat("contexts", dt.SEQ_TYPE, self._c_max_size, embed_stat),
                 dt.SeqStat("answer", dt.SEQ_TYPE, self._a_max_len, embed_stat),
                 dt.SeqStat("q_len", dt.VALUE_INT_TYPE, 1),
                 dt.SeqStat("c_size", dt.VALUE_INT_TYPE, 1),
-                dt.SeqStat("a_len", dt.VALUE_INT_TYPE, 1),
+                dt.SeqStat("a_len", dt.VALUE_INT_TYPE, 1)
             )
         return self._seq_stats
 
 
-    def __init__(self, batch_size, q_max_len, c_max_size, a_max_len,
+    def __init__(self, q_max_len, cs_max_size, a_max_len,
                  out_token_type, nl_flag, embed_reader, encode_func):
         self._seq_stats = None
-        self._batch_size = batch_size
         self._out_token_type = out_token_type
         if out_token_type == dt.ID_TYPE:
             assert vocab_reader is not None
@@ -437,122 +511,10 @@ class bAbIEncodeEmbedsTransform(DocTransformer):
         self._c_max_size = c_max_size
         self._a_max_len = a_max_len
         self._vocab_reader = vocab_reader
+        self._babi_transformer = bAbITransform(q_max_len, cs)
 
     def get_iters(self, *babi_docs):
-        for doc in babi_docs:
-            assert doc.token_type == dt.WORD_TYPE
-
-        if self._token_type == dt.ID_TYPE:
-            token_wrap_f = lambda x: self._vocab_reader.word2id_lookup(x)
-        else:
-            token_wrap_f = lambda x: x
-
-        if self._token_type == dt.ID_TYPE:
-            context_type = np.int64
-        else:
-            context_type = object
-
-        for babi_doc in babi_docs:
-            context_seqs = []
-            c_index = 0
-            for line_tokens in babi_doc.get_stop_token_sequenced_iter(self._nl_flag):
-                seq = []
-                yielded = False
-                for i in range(1, len(line_tokens)):
-                    if "\t" not in line_tokens[i]:
-                        seq.append(token_wrap_f(line_tokens[i]))
-                        continue
-
-                    a_s_tokens = "".join(line_tokens[i:])
-                    res = a_s_tokens.strip().split("\t")
-                    if len(res) == 2:
-                        ans_str, _ = res
-                    elif len(res) == 3:
-                        q_str, ans_str, _ = res
-                        for q_token in q_str.split():
-                            seq.append(token_wrap_f(q_token))
-                    else:
-                        raise ValueError("Unexpected len split by tab")
-                    ans = []
-                    for ans_token in ans_str.split():
-                        ans.append(token_wrap_f(ans_token))
-                    ans = resize_seq(ans, self._a_len, self._pad_token)
-                    que = resize_seq(seq, self._q_len, self._pad_token)
-                    yield que, context_seqs, ans
-                    context_seqs = []
-                    c_index = 0
-                    yielded = True
-                    break
-                if yielded:
-                    continue
-                seq = resize_seq(seq, self._c_dim[1], self._pad_token)
-                try:
-                    context_seqs.append(seq)
-                except:
-                    raise ValueError("Error in iteration")
-                c_index += 1
-
-    def _id_iters(self, *babi_docs):
-        token_wrap_f = lambda x: self._vocab_reader.word2id_lookup(x)
-
-    def _word_iters(self, *babi_docs):
         pass
-    """
-    def get_iters(self, *babi_docs):
-        for doc in babi_docs:
-            assert doc.token_type == dt.WORD_TYPE
-
-        if self._token_type == dt.ID_TYPE:
-            token_wrap_f = lambda x: self._vocab_reader.word2id_lookup(x)
-        else:
-            token_wrap_f = lambda x: x
-
-        if self._token_type == dt.ID_TYPE:
-            context_type = np.int64
-        else:
-            context_type = object
-
-        for babi_doc in babi_docs:
-            context_seqs = np.empty(shape=[self._c_dim[0], self._c_dim[1]],
-                                    dtype=context_type)
-            c_index = 0
-            for line_tokens in babi_doc.get_stop_token_sequenced_iter(self._nl_flag):
-                seq = np.array([], dtype=context_type)
-                for i in range(1, len(line_tokens)):
-                    if "\t" not in line_tokens[i]:
-                        seq = np.append(seq, token_wrap_f(line_tokens[i]))
-                        continue
-
-
-                    a_s_tokens = "".join(line_tokens[i:])
-                    res = a_s_tokens.strip().split("\t")
-                    if len(res) == 2:
-                        ans_str, _ = res
-                    elif len(res) == 3:
-                        q_str, ans_str, _ = res
-                        for q_token in q_str.split():
-                            seq = np.append(seq, token_wrap_f(q_token))
-                    else:
-                        raise ValueError("Unexpected len split by tab")
-                    ans = np.array([], dtype=context_type)
-                    for ans_token in ans_str.split():
-                        ans = np.append(ans, token_wrap_f(ans_token))
-                    pdb.set_trace()
-                    ans = resize_np_seq(ans, self._a_len, self._pad_token)
-                    que = resize_np_seq(seq, self._q_len, self._pad_token)
-                    yield que, context_seqs, ans
-                    context_seqs = np.empty(
-                        shape=[self._c_dim[0], self._c_dim[1]],
-                        dtype=context_type)
-                    c_index = 0
-                    break
-                seq = resize_np_seq(seq, self._c_dim[1], self._pad_token)
-                try:
-                    context_seqs[c_index] = seq
-                except:
-                    raise ValueError("Error in iteration")
-                c_index += 1
-    """
 
 
 def resize_seq(seq, max_len, pad_token):
