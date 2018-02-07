@@ -150,10 +150,17 @@ class Document(object):
         self._generator_fs.append(mask_unk_f)
 
 
+class SeqDocument(object):
+    @classmethod
+    def create_fixed_len_from_doc(cls, doc, fixed_len):
+        pass
+
+    def __init__(self, doc_seq_gen_f, token_type, vocab=None):
+        pass
+
+
 class DocumentTransformState(collections.namedtuple(
     "DocumentTransformState",
     ("docs", "transformer", "size")
     )):
     pass
-
-
