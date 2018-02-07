@@ -25,9 +25,14 @@ class DocTransformer(object):
         pass
 
     @staticmethod
-    def doc_token_types_check(*docs):
-        for doc_ in docs:
-            assert doc_.token_type == docs[0].token_type
+    def docs_consist_check(*docs):
+        for doc in docs:
+            assert doc.token_type == docs[0].token_type
+
+    @staticmethod
+    def docs_type_check(token_type, *docs):
+        for doc in docs:
+            assert doc.token_type == token_type
 
 
 class IdentityTransform(DocTransformer):
@@ -399,78 +404,76 @@ class bAbITransform(DocTransformer):
 
     def __init__(self, q_max_len, cs_max_size, c_max_len, a_max_len,
                  out_token_type, nl_flag, vocab_reader=None):
-        self._out_token_type = out_token_type
-        if out_token_type == dt.ID_TYPE:
-            assert vocab_reader is not None
-            self._seq_type = dt.SEQ_EMBEDS
-            self._pad_token = vu.PAD_ID
-        else:
-            self._seq_type = dt.SEQ_EMBEDS
-            self._pad_token = vu.PAD
         self._nl_flag = nl_flag
         self._q_max_len = q_max_len
         self._c_max_len = c_max_len
         self._cs_max_size = cs_max_size
         self._a_max_len = a_max_len
         self._vocab_reader = vocab_reader
+        if self._out_token_type == dt.ID_TYPE:
+            self._dtype = np.int64
+            self._token_wrap_f = lambda x: self._vocab_reader.word2id_lookup(x)
+            self._pad_token = vu.PAD_ID
+        else:
+            self._dtype = object
+            self._token_wrap_f = lambda x: x
+            self._pad_token = vu.PAD
+        self._max_len = max(q_max_len, c_max_len)
 
     def get_iters(self, *babi_docs):
-        for doc in babi_docs:
-            assert doc.token_type == dt.WORD_TYPE
-        if self._out_token_type == dt.ID_TYPE:
-            dtype = np.int64
-            token_wrap_f = lambda x: self._vocab_reader.word2id_lookup(x)
-            pad_token = vu.PAD_ID
-        else:
-            dtype = object
-            token_wrap_f = lambda x: x
-            pad_token = vu.PAD
-        max_len = max(self._q_max_len, self._c_max_len)
+        self.docs_type_check(dt.WORD_TYPE, *babi_docs)
         for babi_doc in babi_docs:
             context_seqs = np.full((self._cs_max_size, self._c_max_len),
-                                   pad_token, dtype=dtype)
+                                   self._pad_token, dtype=self._dtype)
             c_index = 0
             for line_tokens in babi_doc.get_stop_token_sequenced_iter(self._nl_flag):
-                seq_len, seq = 0, np.full(max_len, pad_token, dtype=dtype)
+                seq_len, seq = 0, np.full(self._max_len, self._pad_token, dtype=self._dtype)
                 seq_lens = np.full(self._cs_max_size, 0, dtype=np.int64)
                 line_tokens = line_tokens[1:]
                 yielded = False
                 for i in range(len(line_tokens)):
                     if "\t" not in line_tokens[i]:
                         if i < max_len:
-                            seq[i] = token_wrap_f(line_tokens[i])
+                            seq[i] = self._token_wrap_f(line_tokens[i])
                             seq_len += 1
                         continue
                     a_s_tokens = "".join(line_tokens[i:])
                     res = a_s_tokens.strip().split("\t")
                     if len(res) == 2:
                         ans_str, _ = res
-                    elif len(res) == 3:
-                        q_r_str, ans_str, _ = res
-                        q_r_tokens = q_r_str.split()
-                        for j in range(min(len(q_r_tokens), self._q_max_len-i)):
-                            seq[i+j] = token_wrap_f(q_r_tokens[j])
-                            seq_len += 1
                     else:
-                        raise ValueError("Unexpected len split by tab")
-                    ans = np.full(self._a_max_len, pad_token, dtype=dtype)
+                        raise ValueError("Unexpected res")
+                        
+                    ans = np.full(self._a_max_len, self._pad_token, dtype=self._dtype)
                     a_len, ans_tokens = 0, ans_str.split()
                     for j in range(min(len(ans_tokens), self._a_max_len)):
-                        ans[j] = token_wrap_f(ans_tokens[j])
+                        ans[j] = self._token_wrap_f(ans_tokens[j])
                         a_len += 1
-                    yield seq, context_seqs, ans, seq_len, c_index+1, a_len
+                    yield seq, context_seqs, ans, seq_len, c_index+1, a_len, seq_lens
                     context_seqs = np.full(
                         (self._cs_max_size, self._c_max_len),
-                        pad_token, dtype=dtype)
+                        self._pad_token, dtype=self._dtype)
                     c_index = 0
                     yielded = True
                     break
-                if yielded:
-                    continue
-                if c_index < self._cs_max_size:
+                if (not yielded) and c_index < self._cs_max_size:
                     context_seqs[c_index, :] = seq[:self._c_max_len]
                     seq_lens[c_index] = seq_len
                     c_index += 1
+
+    def estimate_max_lens(self, *babi_docs):
+        self.docs_type_check(dt.WORD_TYPE, *babi_docs)
+        cs_sizes = {}
+        c_lens = {}
+        q_lens = {}
+        a_lens = {}
+        def update_len(len_dict, length):
+            if length not in len_dict:
+                len_dict[length] = 1
+            else:
+                len_dict[length] += 1
+        for babi_doc in babi_docs:
+
 
 
 class bAbIEncodeEmbedsTransform(DocTransformer):

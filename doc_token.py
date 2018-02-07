@@ -10,13 +10,13 @@ SEQ_TYPE = "seq_type"
 
 class SeqStat:
     """Composition Stat including (0)key (1)type and (2)length"""
-    def __init__(self, name, token_type, seq_len, *sub_seq_stats):
+    def __init__(self, name, token_type, seq_len, sub_seq_stat=None):
         self._name = name
         self._token_type = token_type
         self._seq_len = seq_len
         if self._token_type != SEQ_TYPE:
-            assert sub_seq_stats is None
-        self._sub_seq_stats = sub_seq_stats
+            assert sub_seq_stat is None
+        self._sub_seq_stat = sub_seq_stat
 
     @property
     def name(self):
@@ -31,8 +31,8 @@ class SeqStat:
         return self._seq_len
 
     @property
-    def sub_seq_stats(self):
-        return self._sub_seq_stats
+    def sub_seq_stat(self):
+        return self._sub_seq_stat
 
 
 def assert_type_valid(token_type):
