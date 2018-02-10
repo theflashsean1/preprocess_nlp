@@ -46,18 +46,18 @@ class Document(object):
         return cls(merged_iter_f, token_type)  # TODO handle vocab 
 
 
-    def __init__(self, doc_gen_f, token_type, vocab=None):
-        self._vocab = vocab
+    def __init__(self, src_gen_f, token_type, flag_tokens=None, vocab_reader=None):
+        self._vocab_reader = vocab_reader
         self._token_type = token_type
         self._label_dict = {}
         self._doc_len = None
-        self._generator_fs = []
-        self._iter_gen_func = doc_gen_f
+        self._f_gen_fs = []
+        self._src_gen_f = src_gen_f
 
     def __iter__(self):
-        gen_f = self._iter_gen_func
-        for generator_f in self._generator_fs:
-            gen_f = generator_f(gen_f)
+        gen_f = self._src_gen_f
+        for f_gen_f in self._f_gen_fs:
+            gen_f = f_gen_f(gen_f)
         return gen_f()
 
     def __len__(self):
@@ -106,6 +106,15 @@ class Document(object):
     def token_type(self):
         return self._token_type
 
+    @property
+    def applied_flag_tokens(self):
+        return self._applied_flag_tokens
+
+    @property
+    def is_flag_token_applied(self):
+        return len(self.applied_flag_tokens) > 0
+
+
     def set_vocab(self, vocab):
         self._vocab = vocab
 
@@ -121,12 +130,10 @@ class Document(object):
     def toggle_word_id(self):
         assert self._vocab is not None
         if self._token_type == dt.WORD_TYPE:
-            # self._iter_gen_func = dt.word2id_gen_f(self, self._vocab)
-            self._generator_fs.append(dt.word2id_gen_f(self._vocab))
+            self._f_gen_fs.append(dt.create_word2id_f_gen_f(self._vocab))
             self._token_type = dt.ID_TYPE
         elif self._token_type == dt.ID_TYPE:
-            # self._iter_gen_func = dt.id2word_gen_f(self, self._vocab)
-            self._generator_fs.append(dt.id2word_gen_f(self._vocab))
+            self._f_gen_fs.append(dt.create_id2word_f_gen_f(self._vocab))
             self._token_type = dt.WORD_TYPE
         else:
             raise ValueError("This type of token does not support toggle word/id")
@@ -148,6 +155,12 @@ class Document(object):
                         yield token
             return gen
         self._generator_fs.append(mask_unk_f)
+
+    def skip_tokens(self, token_checkers):
+        pass
+
+    def replace_tokens(self, token_checkers):
+        pass
 
 
 class SeqDocument(object):

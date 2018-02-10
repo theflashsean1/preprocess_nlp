@@ -461,7 +461,7 @@ class bAbITransform(DocTransformer):
                     seq_lens[c_index] = seq_len
                     c_index += 1
 
-    def estimate_max_lens(self, *babi_docs):
+    def get_seq_lens(self, *babi_docs):
         self.docs_type_check(dt.WORD_TYPE, *babi_docs)
         cs_sizes = {}
         c_lens = {}
@@ -473,6 +473,11 @@ class bAbITransform(DocTransformer):
             else:
                 len_dict[length] += 1
         for babi_doc in babi_docs:
+            c_index = 0
+            for line_tokens in babi_docs.get_stop_token_sequenced_iter(self._nl_flag):
+                seq_len = 0 
+                seq_lens = 
+
 
 
 
