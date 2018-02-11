@@ -97,11 +97,11 @@ class EmbedReader(VocabReader):
     def id2embed_lookup(self, id_token):
         if id_token >= self.vocab_size:
             return self._id2embed_table[UNK]
-        return self._id2embed_table[id_token] 
+        return self._id2embed_table[id_token]
 
     def word2embed_lookup(self, word_token):
         id_token = self._word2id_table.get(word_token, UNK_ID)
-        return self.id2embed_lookup[id_token] 
+        return self.id2embed_lookup[id_token]
 
     @property
     def embed_size(self):

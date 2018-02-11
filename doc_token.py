@@ -41,22 +41,112 @@ def assert_type_valid(token_type):
         or token_type == SEQ_IDS or token_type == SEQ_WORDS
 
 
-def word2id_gen_f(vocabulary):
-    def word2id_gen(gen_f):
+def create_word2id_f_gen_f(vocab_reader, flag_tokens):
+    word2id_lookup_f = vocab_reader.word2id_lookup
+    def word2id_f_gen_f(gen_f):
         def gen():
             for word_token in gen_f():
-                id_token = vocabulary.word2id_lookup(word_token)
-                yield id_token 
+                if word_token in flag_tokens:
+                    yield word_token
+                else:
+                    id_token = word2id_lookup_f(word_token)
+                    yield id_token 
         return gen
-    return word2id_gen
+    return word2id_f_gen_f
 
 
-def id2word_gen_f(vocabulary):
-    def id2word_gen(gen_f):
+def create_id2word_f_gen_f(vocab_reader, flag_tokens):
+    id2word_lookup_f = vocab_reader.id2word_lookup
+    def id2word_f_gen_f(gen_f):
         def gen():
             for id_token in gen_f():
-                word_token = vocabulary.id2word_lookup(int(id_token))
-                yield word_token 
+                if id_token in flag_tokens:
+                    yield id_token
+                else:
+                    word_token = id2word_lookup_f(int(id_token))
+                    yield word_token 
         return gen
-    return id2word_gen
+    return id2word_f_gen_f
+
+
+def create_word2embed_f_gen_f(embed_reader, flag_tokens):
+    word2embed_lookup_f = embed_reader.word2embed_lookup
+    def word2embed_f_gen_f(gen_f):
+        def gen():
+            for word_token in gen_f():
+                if word_token in flag_tokens:
+                    yield word_token
+                else:
+                    embed_token = word2embed_lookup_f(word_token)
+                    yield embed_token
+        return gen
+    return word2embed_f_gen_f
+
+
+def create_id2embed_f_gen_f(embed_reader, flag_tokens):
+    id2embed_lookup_f = embed_reader.id2embed_lookup
+    def id2embed_f_gen_f(gen_f):
+        def gen():
+            for id_token in gen_f():
+                if id_token in flag_tokens:
+                    yield id_token
+                else:
+                    embed_token = id2embed_lookup_f(id_token)
+                    yield embed_token
+        return gen
+    return id2embed_f_gen_f
+
+
+class TokenTransformer:
+    @property
+    def num_left_tokens(self):
+        return self._num_right_tokens
+
+    @property
+    def num_right_tokens(self):
+        return self._num_left_tokens
+
+    def __init__(self, token_transformer_f, num_left_tokens, num_right_tokens):
+        self._num_left_tokens = num_left_tokens
+        self._num_right_tokens = num_right_tokens
+        self._token_transformer_f = token_transformer_f
+
+    def __getitem__(self, tokens_tuple):
+        left, center, right = tokens_tuple
+        assert len(left) >= self._num_left_tokens
+        assert len(right) >= self._num_right_tokens
+        left = left[len(left)-self._num_left_tokens-1:]
+        right = right[:self._num_right_tokens]
+        return self._token_transformer_f(left, center, right)
+
+
+    def is_applicable(self, left_len, right_len):
+        left_valid = (left_len == self._num_left_tokens)
+        right_valid = (right_len == self._num_right_tokens)
+        return  left_valid and right_valid
+
+
+def get_max_transformers_lens(token_transformers):
+    left_len = 0
+    right_len = 0
+    for transformer in token_transformers:
+        if transformer.num_left_tokens > left_len:
+            left_len = transformer.num_left_tokens
+        if transformer.num_right_tokens > right_len
+            right_len = transformer.num_right_tokens
+    return left_len, right_len
+
+
+def shift_context_center_tokens(tokens_tuple, token_gen, left_max_len, right_max_len):
+    left, center, right = tokens_tuple
+    left.append(center)
+    if len(left) > left_len:
+        left.pop(0)
+    center = right.pop(0) if len(right) > 0 else None
+    try:
+        right.append(next(token_gen))
+    except StopIteration:
+        pass
+    return center
+
 

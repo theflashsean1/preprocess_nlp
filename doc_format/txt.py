@@ -49,7 +49,7 @@ def doc_gen_f_yield_eol(doc_path, token_type):
             elif token_type == dt.ID_TYPE:
                 yield EOS_ID
     gen_f = _doc_gen_f(doc_path, token_type, eol_gen_f)
-    return gen_f 
+    return gen_f
 
 
 def doc_gen_f_keep_eol_nl(doc_path, token_type):
@@ -57,13 +57,13 @@ def doc_gen_f_keep_eol_nl(doc_path, token_type):
         if line_len > 0:
             yield "\n"
     gen_f = _doc_gen_f(doc_path, token_type, eol_gen_f)
-    return gen_f 
+    return gen_f
 
 
 def doc_gen_f_ignore_eol(doc_path, token_type):
     gen_f = _doc_gen_f(doc_path, token_type)
     return gen_f
-    
+
 
 def doc_save(doc, doc_transformer, *txt_save_paths):
     assert len(txt_save_paths) == len(doc_transformer)
