@@ -105,19 +105,6 @@ class Document(object):
         else:
             raise ValueError("This type of token does not support toggle word/id")
 
-    def convert_embed(self):
-        assert self._vocab_reader is not None
-        if self._token_type == dt.WORD_TYPE:
-            self._f_gen_fs.append(dt.create_word2embed_f_gen_f(
-                self._vocab_reader, self._applied_flag_tokens))
-            self._token_type = dt.EMBED_TYPE
-        elif self._token_type == dt.ID_TYPE:
-            self._f_gen_fs.append(dt.create_id2embed_f_gen_f(
-                self._vocab_reader, self._applied_flag_tokens))
-            self._token_type = dt.EMBED_TYPE
-        else:
-            raise ValueError("This type of token does not support toggle word/id")
-
     def skip_tokens(self, bool_token_transformers):
         left_len, right_len = dt.get_max_context_lens(
             bool_token_transformers

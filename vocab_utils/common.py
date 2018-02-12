@@ -21,7 +21,6 @@ class VocabCreator:
         else:
             self._opened_count_file = None
         self._special_tokens = prepend_special_tokens
-        
 
     def __enter__(self):
         return self

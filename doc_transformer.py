@@ -7,9 +7,37 @@ import preprocess_nlp.vocab_utils as vu
 import pdb
 
 
-class DocTransformer(object):
+class DocTransformer(abc.ABC):
     def __len__(self):
         return len(self.seq_stats)
+
+    @abc.abstractmethod
+    def __init__(self):
+        self._vocab_reader = None
+
+    def set_vocab(self, vocab_reader):
+        self._vocab_reader = vocab_reader
+
+    def get_token_lookup_f(self, in_token_type, out_token_type):
+        assert self._vocab_reader is not None
+        if in_token_type == out_token_type:
+            return lambda x: x
+        elif in_token_type == dt.WORD_TYPE:
+            if out_token_type == dt.ID_TYPE:
+                return self._vocab_reader.word2id_lookup
+            elif out_token_type == dt.EMBED_TYPE:
+                return self._vocab_readerl.word2embed_lookup
+            else:
+                raise ValueError("Not supported")
+        elif in_token_type == dt.ID_TYPE:
+            if out_token_type == dt.WORD_TYPE:
+                return self._vocab_reader.id2word_lookup
+            elif out_token_type == dt.EMBED_TYPE:
+                return self._vocab_reader.id2embed_lookup
+            else:
+                raise ValueError("Not supported")
+        else:
+            raise ValueError("Not supported")
 
     @property
     @abc.abstractmethod
@@ -17,7 +45,11 @@ class DocTransformer(object):
         pass
 
     @abc.abstractmethod
-    def get_iters(self, *docs):
+    def transform_docs(self, *docs):
+        pass
+
+    @abc.abstractmethod
+    def transform_seq_docs(self, *seq_docs):
         pass
 
     @abc.abstractmethod
@@ -70,11 +102,11 @@ class Word2VecTransform(DocTransformer):
             ]
         return self._seq_stats
 
-    def __init__(self, window_size, token_type):
-        self._token_type = token_type
+    def __init__(self, window_size, out_token_type):
+        self._out_token_type = out_token_type
         self._window_size = window_size
         self._seq_stats = None
-    
+
     def get_iters(self, *docs):
         def word2vec_gen(doc):
             doc_gen = iter(doc)
@@ -202,8 +234,7 @@ class Sca2wordTransform(DocTransformer):
 
 
 class Sca2ScapairTransformer(DocTransformer):
-    iter_keys = ["w_i", "w_j"]
-    seq_lens = [1, 1]
+    iter_keys = ["w_i", "w_j"] seq_lens = [1, 1]
 
     @property
     def token_types(self):
@@ -443,7 +474,7 @@ class bAbITransform(DocTransformer):
                         ans_str, _ = res
                     else:
                         raise ValueError("Unexpected res")
-                        
+    
                     ans = np.full(self._a_max_len, self._pad_token, dtype=self._dtype)
                     a_len, ans_tokens = 0, ans_str.split()
                     for j in range(min(len(ans_tokens), self._a_max_len)):
@@ -502,9 +533,8 @@ class bAbIEncodeEmbedsTransform(DocTransformer):
             )
         return self._seq_stats
 
-
     def __init__(self, q_max_len, cs_max_size, a_max_len,
-                 out_token_type, nl_flag, embed_reader, encode_func):
+                 out_token_type, embed_reader, encode_func):
         self._seq_stats = None
         self._out_token_type = out_token_type
         if out_token_type == dt.ID_TYPE:
@@ -540,3 +570,120 @@ def resize_np_seq(seq, max_len, pad_token):
     elif len(seq) > max_len:
         seq = seq[:max_len]
     return seq
+
+
+class QueAnsTransformer(DocTransformer):
+    @property
+    def seq_stats(self):
+        if self._seq_stats is None:
+            if self._out_token_type == dt.EMBED_TYPE:
+                if self._embed_reader:
+                    assert self._embed_reader.embed_size == self._embed_size
+                embed_stat = dt.SeqStat(
+                    "embed", dt.VALUE_FLOAT_TYPE, self._embed_size
+                    )
+                context_stat = dt.SeqStat(
+                    "context", dt.SEQ_TYPE, self._c_max_len
+                    )
+            else:
+                context_stat = dt.SeqStat(
+                    "context", self._out_token_type, self._c_max_len)
+            self._seq_stats = (
+                dt.SeqStat("question", self._out_token_type, self._q_max_len),
+                dt.SeqStat("contexts",
+                           dt.SEQ_TYPE, self._cs_max_size, context_stat),
+                dt.SeqStat("answer", self._out_token_type, self._a_max_len),
+                dt.SeqStat("q_len", dt.VALUE_INT_TYPE, 1),
+                dt.SeqStat("c_size", dt.VALUE_INT_TYPE, 1),
+                dt.SeqStat("a_len", dt.VALUE_INT_TYPE, 1),
+                dt.SeqStat("c_lens", dt.VALUE_INT_TYPE, self._c_max_size)
+            )
+        return self._seq_stats
+
+    def __init__(self, q_max_len, cs_max_size, c_max_len, a_max_len,
+                 out_token_type):
+        # In token type: "WORD", "ID"
+        # Out token type: "WORD", "ID", "EMBED"
+        super().__init__()
+        self._q_max_len = q_max_len
+        self._c_max_len = c_max_len
+        self._cs_max_size = cs_max_size
+        self._a_max_len = a_max_len
+        self._out_token_type = out_token_type
+
+    def transform_docs(self, *docs):
+        raise NotImplementedError("Not supported")
+
+    def transform_seq_docs(self, *qa_seq_docs):
+        if self._out_token_type == dt.EMBED_TYPE:
+            assert self._vocab_reader is not None
+        if self._out_token_type == dt.ID_TYPE:
+            create_contexts_f = lambda: np.full(
+                (self._cs_max_size, self._c_max_len),
+                vu.PAD_ID, dtype=np.int64
+                )
+        elif self._out_token_type == dt.WORD_TYPE:
+            create_contexts_f = lambda: np.full(
+                (self._cs_max_size, self._c_max_len),
+                vu.PAD, dtype=object
+                )
+        else:
+            def create_contexts_f():
+                contexts_f = np.full(
+                    (self._cs_max_size self._c_max_len, self._embed_size),
+                    0, dtype=np.float64)
+                for i in range(self._cs_max_size):
+                    for j in range(self._c_max_len):
+                        contexts_f[:] = np.full(
+                            (1, self._vocab_reader.embed_size),
+                            self._vocab_reader.id2embed_lookup(vu.PAD_ID),
+                            dtype=np.float64)
+
+        for q_a_doc in seq_docs:
+            token_f = self.get_token_lookup_f(q_a_doc.token_type,
+                                              self._out_token_type)
+            que, ans = None, None
+            context_seqs = create_contexts_f()
+            c_index = 0
+            for seq, flag in q_a_doc:
+                if flag == "context":
+                    context_seqs[c_index]
+                    c_index += 1
+                elif flag == "question":
+                    pass
+                elif flag == "answer":
+                    yield context_seqs
+                    context_seqs = create_contexts_f()
+                    c_index = 0
+                else:
+                    pass
+
+
+class QueAnsContextEmbededTransformer(DocTransformer):
+    @property
+    def seq_stats(self):
+        if self._seq_stats is None:
+            embed_stat = dt.SeqStat(
+                "embed", dt.VALUE_FLOAT_TYPE, self._embed_reader.embed_size)
+            self._seq_stats = (
+                dt.SeqStat("question", dt.SEQ_TYPE, self._q_max_len, embed_stat),
+                dt.SeqStat("contexts", dt.SEQ_TYPE, self._c_max_size, embed_stat),
+                dt.SeqStat("answer", dt.SEQ_TYPE, self._a_max_len, embed_stat),
+                dt.SeqStat("q_len", dt.VALUE_INT_TYPE, 1),
+                dt.SeqStat("c_size", dt.VALUE_INT_TYPE, 1),
+                dt.SeqStat("a_len", dt.VALUE_INT_TYPE, 1)
+            )
+        return self._seq_stats
+
+    def __init__(self, q_max_len, cs_max_size, a_max_len, encode_func):
+        self._seq_stats = None
+        self._q_max_len = q_max_len
+        self._c_max_size = c_max_size
+        self._a_max_len = a_max_len
+        self._qa_transformer = bAbITransform(q_max_len, cs)
+
+    def transform_docs(self, *docs):
+        raise NotImplementedError("Not supported")
+
+    def transform_seq_docs(self, *seq_docs):
+        pass
