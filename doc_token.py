@@ -147,3 +147,7 @@ def shift_context_center_tokens(tokens_tuple, token_gen, left_max_len, right_max
         pass
     return center
 
+
+def apply_transforms(token_transformers, tokens_gen,
+                     num_each_gen, applied_index, yield_index):
+    pass

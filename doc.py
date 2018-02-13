@@ -89,6 +89,42 @@ class Document(object):
     def get_label(self, key):
         return self._label_dict.get(key, None)
 
+    def get_iters_with_token_annotations(self, annotation_transformers):
+        left_len, right_len = dt.get_max_context_lens(
+            annotation_transformers
+        )
+        left = []
+        right = []
+        token_gen = iter(self)
+        try:
+            center = next(token_gen)
+        except StopIteration:
+            return
+        while center is not None:
+            annotation = None
+            if len(left) == left_len and len(right) == right_len:
+                for transformer in annotation_transformers:
+                    annotation = transformer[left, center, right]
+                    if annotation is not None:
+                        break
+            else:
+                for transformer in annotation_transformers:
+                    if transformer.is_applicable(len(left), len(right)):
+                        annotation = transformer[left, center, right]
+                        if annotation is not None:
+                            break
+                if annotation is None:
+                    if len(right) < right_len:
+                        try:
+                            right.append(next(token_gen))
+                            continue
+                        except StopIteration:
+                            pass
+            yield center, annotation
+            center = dt.shift_context_center_tokens(
+                (left, center, right),
+                token_gen, left_len, right_len)
+
     ##########################
     # State Changing methods #
     ##########################
@@ -102,6 +138,19 @@ class Document(object):
             self._f_gen_fs.append(dt.create_id2word_f_gen_f(
                 self._vocab_reader, self._applied_flag_tokens))
             self._token_type = dt.WORD_TYPE
+        else:
+            raise ValueError("This type of token does not support toggle word/id")
+
+    def convert_embed(self):
+        assert self._vocab_reader is not None
+        if self._token_type == dt.WORD_TYPE:
+            self._f_gen_fs.append(dt.create_word2embed_f_gen_f(
+                self._vocab, self._applied_flag_tokens))
+            self._token_type = dt.EMBED_TYPE
+        elif self._token_type == dt.ID_TYPE:
+            self._f_gen_fs.append(dt.create_id2embed_f_gen_f(
+                self._vocab_reader, self._applied_flag_tokens))
+            self._token_type = dt.EMBED_TYPE
         else:
             raise ValueError("This type of token does not support toggle word/id")
 
@@ -128,9 +177,6 @@ class Document(object):
                                 break
                         if not skip_flag:
                             yield center
-                        center = dt.shift_context_center_tokens(
-                            (left, center, right),
-                            token_gen, left_len, right_len)
                     else:
                         for transformer in bool_token_transformers:
                             if transformer.is_applicable(len(left), len(right)):
@@ -145,13 +191,9 @@ class Document(object):
                                 except StopIteration:
                                     pass
                             yield center
-                            center = dt.shift_context_center_tokens(
-                                (left, center, right),
-                                token_gen, left_len, right_len)
-                        else:
-                            center = dt.shift_context_center_tokens(
-                                (left, center, right),
-                                token_gen, left_len, right_len)
+                    center = dt.shift_context_center_tokens(
+                        (left, center, right),
+                        token_gen, left_len, right_len)
             return gen
         self._f_gen_fs.append(skip_tokens_f_gen_f)
 
@@ -179,6 +221,10 @@ class Document(object):
 
 
 class SeqDocument(object):
+    @property
+    def token_type(self):
+        return self._doc.token_type
+
     @classmethod
     def create_len_separated_seq_doc(cls, doc, fixed_len):
         assert not doc.is_flag_token_applied
@@ -227,53 +273,41 @@ class SeqDocument(object):
         for seq_list, flag in self._seq_gen_f(self._doc):
             yield seq_list, flag
 
-    def update_flag_tokens(self, flag_token_transformers):
+    def get_iters_transformed_flags(self, flag_token_transformers):
         left_len, right_len = dt.get_max_context_lens(
             flag_token_transformers
         )
-
-        def flag_gen(doc_):
-            left = []
-            right = []
-            token_gen = self._seq_gen_f(doc_)
-            try:
-                seq, center = next(token_gen)
-            except StopIteration:
-                return
-            while center is not None:
-                new_center = center
-                if len(left) == left_len and len(right) == right_len:
-                    for transformer in flag_token_transformers:
+        left = []
+        right = []
+        token_gen = self._seq_gen_f(self._doc)
+        try:
+            seq, center = next(token_gen)
+        except StopIteration:
+            return
+        while center is not None:
+            new_center = center
+            if len(left) == left_len and len(right) == right_len:
+                for transformer in flag_token_transformers:
+                    new_center = transformer[left, center, right]
+                    if new_center != center:
+                        break
+            else:
+                for transformer in flag_token_transformers:
+                    if transformer.is_applicable(len(left), len(right)):
                         new_center = transformer[left, center, right]
-                        if new_center != center:
+                        if new_center is not None:
                             break
-                    yield seq, new_center
-                    center = dt.shift_context_center_tokens(
-                        (left, center, right),
-                        token_gen, left_len, right_len)
-                else:
-                    for transformer in flag_token_transformers:
-                        if transformer.is_applicable(len(left), len(right)):
-                            new_center = transformer[left, center, right]
-                            if new_center != center:
-                                break
-                    if new_center == center:
-                        if len(right) < right_len:
-                            try:
-                                right.append(next(token_gen))
-                                continue
-                            except StopIteration:
-                                pass
-                        yield seq, new_center
-                        center = dt.shift_context_center_tokens(
-                            (left, center, right),
-                            token_gen, left_len, right_len)
-                    else:
-                        yield seq, new_center
-                        center = dt.shift_context_center_tokens(
-                            (left, center, right),
-                            token_gen, left_len, right_len)
-        self._seq_gen_f = flag_gen
+                if new_center is None:
+                    if len(right) < right_len:
+                        try:
+                            right.append(next(token_gen))
+                            continue
+                        except StopIteration:
+                            pass
+            yield seq, new_center
+            center = dt.shift_context_center_tokens(
+                (left, center, right),
+                token_gen, left_len, right_len)
 
 
 class DocumentTransformState(collections.namedtuple(

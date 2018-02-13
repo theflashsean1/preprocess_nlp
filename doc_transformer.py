@@ -12,36 +12,7 @@ class DocTransformer(abc.ABC):
         return len(self.seq_stats)
 
     @abc.abstractmethod
-    def __init__(self):
-        self._vocab_reader = None
-
-    def set_vocab(self, vocab_reader):
-        self._vocab_reader = vocab_reader
-
-    def get_token_lookup_f(self, in_token_type, out_token_type):
-        assert self._vocab_reader is not None
-        if in_token_type == out_token_type:
-            return lambda x: x
-        elif in_token_type == dt.WORD_TYPE:
-            if out_token_type == dt.ID_TYPE:
-                return self._vocab_reader.word2id_lookup
-            elif out_token_type == dt.EMBED_TYPE:
-                return self._vocab_readerl.word2embed_lookup
-            else:
-                raise ValueError("Not supported")
-        elif in_token_type == dt.ID_TYPE:
-            if out_token_type == dt.WORD_TYPE:
-                return self._vocab_reader.id2word_lookup
-            elif out_token_type == dt.EMBED_TYPE:
-                return self._vocab_reader.id2embed_lookup
-            else:
-                raise ValueError("Not supported")
-        else:
-            raise ValueError("Not supported")
-
-    @property
-    @abc.abstractmethod
-    def seq_stats(self):
+    def get_seq_stats(self, *docs):
         pass
 
     @abc.abstractmethod
